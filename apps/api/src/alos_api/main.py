@@ -12,6 +12,7 @@ from .config import get_settings
 from .context import ContextMiddleware, RequestContext
 from .contexts.application.api import router as application_router
 from .contexts.assessment.api import router as assessment_router
+from .contexts.credit_memo.api import router as credit_memo_router
 from .deps import get_audit_store, require_context
 
 
@@ -42,7 +43,21 @@ def create_app() -> FastAPI:
 
     app.include_router(application_router)
     app.include_router(assessment_router)
+    app.include_router(credit_memo_router)
+
+    # Serve the demonstrator site (apps/web) at /app if present.
+    _mount_web(app)
     return app
+
+
+def _mount_web(app: FastAPI) -> None:
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    web_dir = Path(__file__).resolve().parents[3] / "web"
+    if web_dir.is_dir():
+        app.mount("/app", StaticFiles(directory=str(web_dir), html=True), name="web")
 
 
 app = create_app()

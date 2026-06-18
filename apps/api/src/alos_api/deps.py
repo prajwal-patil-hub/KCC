@@ -12,6 +12,8 @@ from fastapi import Depends, HTTPException
 from .config import Settings, get_settings
 from .context import RequestContext, current_context
 from .contexts.application.service import ApplicationService
+from .contexts.credit_memo.agent import CreditMemoAgent
+from .contexts.credit_memo.provider import get_provider
 from .integrations.base import CircuitBreaker
 from .integrations.kyc import MockKycAdapter
 from .platform.audit import AuditStore, InMemoryAuditStore
@@ -39,6 +41,12 @@ def get_idempotency_store() -> IdempotencyStore:
 
 def get_application_service() -> ApplicationService:
     return ApplicationService(_event_store, _audit_store)
+
+
+def get_credit_memo_agent(
+    settings: Settings = Depends(get_settings),
+) -> CreditMemoAgent:
+    return CreditMemoAgent(get_provider(settings.llm_provider))
 
 
 def get_kyc_adapter(settings: Settings = Depends(get_settings)) -> MockKycAdapter:

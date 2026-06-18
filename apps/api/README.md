@@ -16,6 +16,24 @@ features are piled on:
 - **Eligibility engine wired in** (ADR-0005) — the pure
   `packages/eligibility-engine` computes the KCC limit; the API records the
   result as an application event.
+- **Credit-Memo agent with AI-optional design** — AI narrates the memo when a
+  provider is healthy; otherwise the agent automatically returns a deterministic
+  **template memo**, so the workflow never blocks. Plus **manual** and **skip
+  (with audited reason)** options. `GET /ai/health` exposes status + fallbacks.
+
+## AI is optional by design
+`ALOS_LLM_PROVIDER` selects the provider: `none` (default — "no AI running"),
+`mock` (demo/test), or a real provider. When AI is unavailable *or a live call
+fails*, `POST /applications/{id}/memo/generate` falls back to the template memo
+and reports `mode: "template"`, `ai_available: false`, and a `fallback_reason`.
+Other ways to complete the step: `POST .../memo/manual` (human writes/overrides)
+and `POST .../memo/skip` (requires a reason; recorded in the audit chain).
+
+## Demonstrator site
+A self-contained UI (`apps/web`) is served at **`/app`** when running uvicorn.
+It shows the AI status badge, disables the AI button when AI is off, and surfaces
+the template / manual / skip controls. Run the server and open
+`http://localhost:8000/app/`.
 
 ## Run
 

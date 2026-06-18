@@ -21,6 +21,7 @@ STAGES: list[str] = [
     "CustomerLinked",
     "KycCompleted",
     "EligibilityComputed",
+    "MemoGenerated",
     "MakerReviewed",
     "CheckerReviewed",
     "Sanctioned",
@@ -46,6 +47,7 @@ class LoanApplication:
     customer: dict = field(default_factory=dict)
     kyc: dict = field(default_factory=dict)
     eligibility: dict = field(default_factory=dict)
+    memo: dict = field(default_factory=dict)
     version: int = 0
 
     @classmethod
@@ -70,6 +72,8 @@ class LoanApplication:
             self.kyc = e.payload
         if name == "EligibilityComputed":
             self.eligibility = e.payload
+        if name == "MemoGenerated":
+            self.memo = e.payload
 
     # --- transition rules -------------------------------------------------
 

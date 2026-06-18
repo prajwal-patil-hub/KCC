@@ -51,6 +51,7 @@ def _view(app) -> dict:
         "customer": app.customer,
         "kyc": app.kyc,
         "eligibility": app.eligibility,
+        "memo": app.memo,
     }
 
 

@@ -73,9 +73,17 @@ Prometheus/Grafana/OpenTelemetry.
   hash-chained audit, mock-first integration adapters (KYC with tokenised
   Aadhaar), and the eligibility engine wired into the Assessment context. A full
   KCC lead→sanction flow runs end-to-end on mocks.
+- **Credit-Memo agent DONE (16 API tests green).** AI is optional by design:
+  with a healthy provider it narrates the memo; otherwise it auto-falls-back to a
+  deterministic template memo, plus manual/skip options — the workflow never
+  blocks on AI. `GET /ai/health` drives the UI. Provider via `ALOS_LLM_PROVIDER`
+  (none|mock|real). New `MemoGenerated` workflow stage.
+- **Demonstrator site DONE (`apps/web`)** — served at `/app`; glassmorphism UI
+  showing AI status and the template/manual/skip controls when AI is off.
 - **Not yet built:** real Postgres/Redis/Kafka drivers behind the existing
-  interfaces, real integrations (behind flags), the workflow/saga engine as
-  config, the AI Credit-Memo agent, and the web/field PWA. See roadmap M1–M2.
+  interfaces, real integrations (behind flags), the config-driven workflow/saga
+  engine, additional AI agents, and the production Next.js + field PWA. See
+  roadmap M1–M2.
 
 ## Where things live
 ```

@@ -66,6 +66,13 @@ def test_full_kcc_happy_path(client):
     assert r.json()["eligible"] is True
     assert r.json()["breakup"]["net_limit"] == "117000"
 
+    # credit memo — AI is off by default, so this falls back to a template memo
+    r = client.post(f"/applications/{app_id}/memo/generate", headers=auth())
+    assert r.status_code == 200, r.text
+    memo = r.json()["memo"]
+    assert memo["mode"] == "template"
+    assert memo["ai_available"] is False
+
     # maker reviews
     r = client.post(f"/applications/{app_id}/advance/MakerReviewed",
                     json={"reason": "looks good"}, headers=auth(user="maker1"))
@@ -90,6 +97,7 @@ def test_full_kcc_happy_path(client):
         "application.CustomerLinked",
         "application.KycCompleted",
         "application.EligibilityComputed",
+        "application.MemoGenerated",
         "application.MakerReviewed",
         "application.CheckerReviewed",
         "application.Sanctioned",
@@ -112,6 +120,7 @@ def test_maker_cannot_check_own_work(client):
                       "crops": [{"parcel_id": "P1", "crop": "wheat",
                                  "season": "rabi", "area_hectares": 1}]},
                 headers=auth(user="maker1"))
+    client.post(f"/applications/{app_id}/memo/generate", headers=auth(user="maker1"))
     client.post(f"/applications/{app_id}/advance/MakerReviewed",
                 json={}, headers=auth(user="maker1"))
     # same user tries to check -> 409

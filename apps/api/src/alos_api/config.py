@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # ADR-0006: mock-first. Never silently default to real adapters.
     integration_mode: str = "mock"  # mock | sandbox | prod
 
+    # AI provider for the Credit-Memo agent. Default "none" = no AI running, so
+    # the agent falls back to a deterministic template memo (set "mock" to demo
+    # the AI path, or a real provider name in production).
+    llm_provider: str = "none"  # none | mock | openai | anthropic
+
     # Resilience knobs for the adapter framework.
     adapter_max_retries: int = 3
     circuit_breaker_threshold: int = 5  # consecutive failures before opening
