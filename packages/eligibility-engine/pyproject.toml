@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alos-eligibility"
+version = "0.1.0"
+description = "Deterministic KCC limit & eligibility engine for ALOS"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "Proprietary" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
