@@ -16,3 +16,17 @@ jobs:
           python-version: "3.11"
       - run: pip install pytest
       - run: PYTHONPATH=src python -m pytest -q
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ../../packages/eligibility-engine
+      - run: pip install fastapi uvicorn "pydantic>=2" pydantic-settings httpx pytest
+      - run: PYTHONPATH=src python -m pytest -q

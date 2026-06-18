@@ -1,0 +1,66 @@
+"""Process-wide singletons and FastAPI dependencies.
+
+In the modular monolith (ADR-0001) these in-memory stores stand in for Postgres /
+Redis / Kafka. They are swapped for real drivers by changing this wiring only —
+the contexts depend on the interfaces, not these concretions.
+"""
+
+from __future__ import annotations
+
+from fastapi import Depends, HTTPException
+
+from .config import Settings, get_settings
+from .context import RequestContext, current_context
+from .contexts.application.service import ApplicationService
+from .integrations.base import CircuitBreaker
+from .integrations.kyc import MockKycAdapter
+from .platform.audit import AuditStore, InMemoryAuditStore
+from .platform.events import EventStore, InMemoryEventStore
+from .platform.idempotency import IdempotencyStore
+
+# --- singletons -----------------------------------------------------------
+
+_event_store: EventStore = InMemoryEventStore()
+_audit_store: AuditStore = InMemoryAuditStore()
+_idempotency: IdempotencyStore = IdempotencyStore()
+
+
+def get_event_store() -> EventStore:
+    return _event_store
+
+
+def get_audit_store() -> AuditStore:
+    return _audit_store
+
+
+def get_idempotency_store() -> IdempotencyStore:
+    return _idempotency
+
+
+def get_application_service() -> ApplicationService:
+    return ApplicationService(_event_store, _audit_store)
+
+
+def get_kyc_adapter(settings: Settings = Depends(get_settings)) -> MockKycAdapter:
+    return MockKycAdapter(
+        mock_mode=settings.integration_mode == "mock",
+        max_retries=settings.adapter_max_retries,
+        breaker=CircuitBreaker(threshold=settings.circuit_breaker_threshold),
+    )
+
+
+# --- auth dependency ------------------------------------------------------
+#
+# The principal is bound to the request context by ContextMiddleware (which reads
+# the dev auth headers; in production this is an OIDC token validated and mapped
+# to a Principal — docs/06). This dependency simply requires that binding to
+# exist, returning 401 otherwise.
+
+
+def require_context() -> RequestContext:
+    try:
+        return current_context()
+    except LookupError:
+        raise HTTPException(
+            status_code=401, detail="Missing X-User-Id / X-Tenant-Id"
+        )

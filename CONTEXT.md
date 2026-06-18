@@ -65,11 +65,17 @@ Prometheus/Grafana/OpenTelemetry.
 ## Current state of the repo (2026-06-18)
 - **Planning complete** for the first cut: improved prompt + gap analysis +
   architecture method + 6 ADRs + domain/system/AI/security docs + roadmap.
-- **Build started:** `packages/eligibility-engine` — the pure, dependency-free,
-  fully unit-tested (15 tests green) deterministic KCC limit calculator. This is
-  Milestone 1.3 and the highest-certainty, zero-external-dependency component.
-- **Not yet built:** the FastAPI app shell, auth/RLS, event/audit stores,
-  adapters, workflow engine, AI orchestrator, web/PWA. See roadmap.
+- **`packages/eligibility-engine`** — pure, dependency-free, fully unit-tested
+  (15 tests) deterministic KCC limit calculator.
+- **`apps/api` — Milestone 0 walking skeleton DONE (7 tests green).** FastAPI
+  modular monolith proving the spine: ASGI context/auth middleware, tenant
+  isolation guard, event-sourced `LoanApplication`, server-side maker-checker,
+  hash-chained audit, mock-first integration adapters (KYC with tokenised
+  Aadhaar), and the eligibility engine wired into the Assessment context. A full
+  KCC lead→sanction flow runs end-to-end on mocks.
+- **Not yet built:** real Postgres/Redis/Kafka drivers behind the existing
+  interfaces, real integrations (behind flags), the workflow/saga engine as
+  config, the AI Credit-Memo agent, and the web/field PWA. See roadmap M1–M2.
 
 ## Where things live
 ```
@@ -82,9 +88,11 @@ packages/eligibility-engine/   the first built component
 ```
 
 ## What to do next (proposed)
-Milestone 0 walking skeleton: FastAPI app shell with auth + tenancy/RLS + event
-store + audit + mock adapter framework, then wire the eligibility engine in
-behind the Assessment context. Full plan in `docs/07-roadmap.md`.
+Milestone 0 is done. Next is Milestone 1: (a) the AI Credit-Memo agent —
+grounded, governed, overridable — drafting the memo around the computed figures;
+(b) the config-driven workflow/saga engine replacing the hard-coded stage list;
+(c) mock Documentation → Disbursement → CBS stages with idempotency +
+reconciliation. Full plan in `docs/07-roadmap.md`.
 
 ## Working agreement
 - Decisions that are hard to reverse or touch money → write an ADR first.
