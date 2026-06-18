@@ -29,10 +29,29 @@ and reports `mode: "template"`, `ai_available: false`, and a `fallback_reason`.
 Other ways to complete the step: `POST .../memo/manual` (human writes/overrides)
 and `POST .../memo/skip` (requires a reason; recorded in the audit chain).
 
+- **Config-driven workflow/saga engine** (ADR-0004) — `platform/workflow.py`.
+  The KCC lifecycle is a versioned `WorkflowDefinition`; the service enforces
+  transition legality, maker-checker, and per-stage role requirements. Adding a
+  product/approval-chain = new definition, not new code.
+- **Documentation → Disbursement → CBS** — NESL/eStamp/eSign **saga with
+  compensation** (partial failure rolls back), **idempotent money events** (a
+  repeat `/disburse` returns the same reference and emits no second event), and a
+  **reconciliation** store (`GET /reconciliation/report`).
+
+## Full KCC lifecycle (all mocked)
+```
+Lead → CustomerLinked → KycCompleted → EligibilityComputed → MemoGenerated
+   → MakerReviewed → CheckerReviewed → Sanctioned → DocumentsExecuted
+   → Disbursed → CbsPosted
+```
+`GET /applications/{id}/timeline` returns the stages + an **application health
+score**, both derived from the event log so they can't drift from reality.
+
 ## Demonstrator site
-A self-contained UI (`apps/web`) is served at **`/app`** when running uvicorn.
-It shows the AI status badge, disables the AI button when AI is off, and surfaces
-the template / manual / skip controls. Run the server and open
+A self-contained UI (`apps/web`) is served at **`/app`**. It renders the derived
+workflow timeline + health ring and offers stage-aware actions: the memo step
+(AI / template / manual / skip), maker → checker → sanction, document execution,
+disbursement, CBS posting, and the reconciliation report. Run uvicorn and open
 `http://localhost:8000/app/`.
 
 ## Run

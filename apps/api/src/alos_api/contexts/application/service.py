@@ -1,8 +1,9 @@
 """Application service — orchestrates commands on the LoanApplication aggregate.
 
 Each command runs the canonical write path (docs/03): validate invariants +
-tenant context, append event(s), and write an audit record. (Outbox publication
-is a no-op stub in the skeleton; the seam is here.)
+tenant context, append event(s), and write an audit record. Transition legality,
+maker-checker, and role requirements come from the injected WorkflowDefinition
+(ADR-0004). (Outbox publication is a no-op stub in the skeleton; the seam is here.)
 """
 
 from __future__ import annotations
@@ -12,14 +13,30 @@ import uuid
 from ...context import current_context
 from ...platform.audit import AuditStore
 from ...platform.events import Event, EventStore
-from ...platform.tenancy import assert_tenant, current_tenant
+from ...platform.makerchecker import assert_distinct
+from ...platform.tenancy import assert_tenant
+from ...platform.workflow import (
+    RoleNotPermitted,
+    WorkflowDefinition,
+    kcc_workflow,
+)
 from .aggregate import LoanApplication
 
 
 class ApplicationService:
-    def __init__(self, events: EventStore, audit: AuditStore) -> None:
+    def __init__(
+        self,
+        events: EventStore,
+        audit: AuditStore,
+        workflow: WorkflowDefinition | None = None,
+    ) -> None:
         self._events = events
         self._audit = audit
+        self._workflow = workflow or kcc_workflow()
+
+    @property
+    def workflow(self) -> WorkflowDefinition:
+        return self._workflow
 
     # --- helpers ----------------------------------------------------------
 
@@ -56,6 +73,7 @@ class ApplicationService:
 
     def create_lead(self, payload: dict) -> LoanApplication:
         application_id = str(uuid.uuid4())
+        self._workflow.assert_transition(None, "LeadCreated")
         self._emit(application_id, 0, "application.LeadCreated", payload)
         return self._load(application_id)
 
@@ -63,9 +81,20 @@ class ApplicationService:
         self, application_id: str, target: str, payload: dict | None = None
     ) -> LoanApplication:
         app = self._load(application_id)
-        actor = current_context().principal.user_id
-        app.next_stage_of(target)              # transition legality
-        app.guard_checker(target, actor)       # maker != checker on gated steps
+        principal = current_context().principal
+        stage = self._workflow.get(target)
+
+        # 1) transition legality
+        self._workflow.assert_transition(app.stage, target)
+        # 2) Separation of Duties (before role, so SoD violations surface as 409)
+        if stage.requires_checker:
+            assert_distinct(app.maker_user_id, principal.user_id)
+        # 3) role requirement (ABAC-lite)
+        if stage.required_roles and not (stage.required_roles & principal.roles):
+            raise RoleNotPermitted(
+                f"Stage '{target}' requires one of {sorted(stage.required_roles)}"
+            )
+
         self._emit(application_id, app.version, f"application.{target}", payload or {})
         return self._load(application_id)
 

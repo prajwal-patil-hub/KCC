@@ -3,58 +3,60 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ALOS — Credit Memo Workspace</title>
+  <title>ALOS — KCC Lending Workspace</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
 
   <header class="topbar glass">
-    <div class="brand"><span class="logo">◈</span> ALOS <small>Credit Memo Workspace</small></div>
+    <div class="brand"><span class="logo">◈</span> ALOS <small>KCC Lending Workspace</small></div>
     <div class="who">
-      <label>User <input id="user" value="maker1" /></label>
+      <label>Officer <input id="user" value="ramesh.officer" /></label>
       <label>Tenant <input id="tenant" value="bankA" /></label>
       <span id="aiBadge" class="badge badge-muted">AI: checking…</span>
     </div>
   </header>
 
   <main>
-    <!-- Step 1: spin up a demo application through to eligibility -->
     <section class="card glass">
-      <h2><span class="step">1</span> Application</h2>
-      <p class="muted">Create a KCC application and run it to the eligibility stage
-        (all integrations are mocked).</p>
+      <div class="row between">
+        <div>
+          <h2><span class="step">▶</span> Application</h2>
+          <p class="muted">Create a KCC application; integrations are mocked end to end.</p>
+        </div>
+        <div class="health hidden" id="health">
+          <div class="ring" id="ring"><span id="healthNum">0</span></div>
+          <small>Health</small>
+        </div>
+      </div>
       <div class="row">
         <input id="applicant" placeholder="Applicant name" value="Ramesh Kumar" />
         <button id="seedBtn" class="primary">Create & run to eligibility</button>
+        <button id="resetBtn" class="ghost">Reset</button>
       </div>
       <div id="appInfo" class="kv hidden"></div>
     </section>
 
-    <!-- Step 2: the memo step, with graceful AI handling -->
-    <section class="card glass">
-      <h2><span class="step">2</span> Credit memo</h2>
+    <section class="card glass" id="flowCard" style="display:none">
+      <h2><span class="step">⛓</span> Workflow timeline</h2>
+      <div id="timeline" class="timeline"></div>
+
       <div id="aiNotice" class="notice hidden"></div>
+      <h3 id="actionTitle" class="action-title">Next step</h3>
+      <div id="actions" class="actions"></div>
 
-      <div class="actions">
-        <button id="genAiBtn" class="primary" title="Generate using AI">✨ Generate with AI</button>
-        <button id="genTplBtn">📄 Use template memo</button>
-        <button id="manualBtn">✍️ Write manually</button>
-        <button id="skipBtn" class="ghost">⤼ Skip step…</button>
-      </div>
-
-      <div id="manualBox" class="hidden">
-        <textarea id="manualText" rows="5" placeholder="Write the credit memo…"></textarea>
+      <div id="manualBox" class="inline-box hidden">
+        <textarea id="manualText" rows="4" placeholder="Write the credit memo…"></textarea>
         <button id="manualSave" class="primary">Save memo</button>
       </div>
-
-      <div id="skipBox" class="hidden">
+      <div id="skipBox" class="inline-box hidden">
         <input id="skipReason" placeholder="Reason for skipping (required, audited)" />
         <button id="skipSave" class="primary">Confirm skip</button>
       </div>
 
-      <pre id="memoOut" class="memo hidden"></pre>
-      <div id="memoMeta" class="meta hidden"></div>
+      <pre id="out" class="memo hidden"></pre>
+      <div id="meta" class="meta hidden"></div>
     </section>
 
     <div id="toast" class="toast hidden"></div>

@@ -14,7 +14,16 @@ from .context import RequestContext, current_context
 from .contexts.application.service import ApplicationService
 from .contexts.credit_memo.agent import CreditMemoAgent
 from .contexts.credit_memo.provider import get_provider
+from .contexts.disbursement.reconciliation import ReconciliationStore
+from .contexts.disbursement.service import DisbursementService
+from .contexts.documentation.service import DocStep, DocumentationService
 from .integrations.base import CircuitBreaker
+from .integrations.cbs import MockCbsAdapter
+from .integrations.documents import (
+    MockEsignAdapter,
+    MockEstampAdapter,
+    MockNeslAdapter,
+)
 from .integrations.kyc import MockKycAdapter
 from .platform.audit import AuditStore, InMemoryAuditStore
 from .platform.events import EventStore, InMemoryEventStore
@@ -25,6 +34,7 @@ from .platform.idempotency import IdempotencyStore
 _event_store: EventStore = InMemoryEventStore()
 _audit_store: AuditStore = InMemoryAuditStore()
 _idempotency: IdempotencyStore = IdempotencyStore()
+_reconciliation: ReconciliationStore = ReconciliationStore()
 
 
 def get_event_store() -> EventStore:
@@ -43,10 +53,42 @@ def get_application_service() -> ApplicationService:
     return ApplicationService(_event_store, _audit_store)
 
 
+def get_reconciliation_store() -> ReconciliationStore:
+    return _reconciliation
+
+
 def get_credit_memo_agent(
     settings: Settings = Depends(get_settings),
 ) -> CreditMemoAgent:
     return CreditMemoAgent(get_provider(settings.llm_provider))
+
+
+def _adapter_kwargs(settings: Settings) -> dict:
+    return {
+        "mock_mode": settings.integration_mode == "mock",
+        "max_retries": settings.adapter_max_retries,
+        "breaker": CircuitBreaker(threshold=settings.circuit_breaker_threshold),
+    }
+
+
+def get_documentation_service(
+    settings: Settings = Depends(get_settings),
+) -> DocumentationService:
+    kw = _adapter_kwargs(settings)
+    steps = [
+        DocStep("nesl", MockNeslAdapter(**kw)),
+        DocStep("estamp", MockEstampAdapter(**kw)),
+        DocStep("esign", MockEsignAdapter(**kw)),
+    ]
+    return DocumentationService(steps, _idempotency)
+
+
+def get_disbursement_service(
+    settings: Settings = Depends(get_settings),
+) -> DisbursementService:
+    return DisbursementService(
+        MockCbsAdapter(**_adapter_kwargs(settings)), _idempotency, _reconciliation
+    )
 
 
 def get_kyc_adapter(settings: Settings = Depends(get_settings)) -> MockKycAdapter:

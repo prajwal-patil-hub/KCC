@@ -1,11 +1,9 @@
 """LoanApplication aggregate — event-sourced (ADR-0002).
 
-The spine of the system. State is a fold over its event stream. The workflow is
-an explicit ordered set of stages (ADR-0004); transitions are validated here and
-maker-checker gates are enforced server-side.
-
-This is a deliberately small, KCC-shaped slice of the full lifecycle in
-docs/02; stages can be made config-driven later without changing callers.
+The spine of the system. State is a fold over its event stream. Transition
+legality, the maker-checker gate, and role requirements are governed by the
+config-driven WorkflowDefinition (platform/workflow.py) and enforced in the
+ApplicationService — the aggregate just holds the folded read-state.
 """
 
 from __future__ import annotations
@@ -13,33 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ...platform.events import Event
-from ...platform.makerchecker import assert_distinct
 
-# Ordered KCC workflow stages (the MVP slice).
-STAGES: list[str] = [
-    "LeadCreated",
-    "CustomerLinked",
-    "KycCompleted",
-    "EligibilityComputed",
-    "MemoGenerated",
-    "MakerReviewed",
-    "CheckerReviewed",
-    "Sanctioned",
-]
-
-# Transitions that require an independent checker (Separation of Duties).
-CHECKER_GATES = {"CheckerReviewed"}
-
-
-class InvalidTransition(RuntimeError):
-    pass
+# Re-exported for backwards-compatible imports across the contexts.
+from ...platform.workflow import InvalidTransition  # noqa: F401
 
 
 @dataclass
 class LoanApplication:
-    """Folded read-state of an application. Rebuilt from events, never mutated
-    directly by callers — callers issue commands on the service."""
-
     application_id: str
     tenant_id: str
     stage: str | None = None
@@ -48,6 +26,10 @@ class LoanApplication:
     kyc: dict = field(default_factory=dict)
     eligibility: dict = field(default_factory=dict)
     memo: dict = field(default_factory=dict)
+    documents: dict = field(default_factory=dict)
+    disbursement: dict = field(default_factory=dict)
+    cbs: dict = field(default_factory=dict)
+    completed_stages: list[str] = field(default_factory=list)
     version: int = 0
 
     @classmethod
@@ -64,30 +46,17 @@ class LoanApplication:
     def _apply(self, e: Event) -> None:
         name = e.type.split(".", 1)[-1]
         self.stage = name
+        self.completed_stages.append(name)
         if name == "MakerReviewed":
             self.maker_user_id = e.actor_id
-        if name == "CustomerLinked":
-            self.customer = e.payload
-        if name == "KycCompleted":
-            self.kyc = e.payload
-        if name == "EligibilityComputed":
-            self.eligibility = e.payload
-        if name == "MemoGenerated":
-            self.memo = e.payload
-
-    # --- transition rules -------------------------------------------------
-
-    def next_stage_of(self, target: str) -> None:
-        if target not in STAGES:
-            raise InvalidTransition(f"Unknown stage '{target}'")
-        idx = STAGES.index(target)
-        expected_prev = STAGES[idx - 1] if idx > 0 else None
-        if self.stage != expected_prev:
-            raise InvalidTransition(
-                f"Cannot move to '{target}' from '{self.stage}'; "
-                f"expected previous stage '{expected_prev}'"
-            )
-
-    def guard_checker(self, target: str, actor_user_id: str) -> None:
-        if target in CHECKER_GATES:
-            assert_distinct(self.maker_user_id, actor_user_id)
+        mapping = {
+            "CustomerLinked": "customer",
+            "KycCompleted": "kyc",
+            "EligibilityComputed": "eligibility",
+            "MemoGenerated": "memo",
+            "DocumentsExecuted": "documents",
+            "Disbursed": "disbursement",
+            "CbsPosted": "cbs",
+        }
+        if name in mapping:
+            setattr(self, mapping[name], e.payload)

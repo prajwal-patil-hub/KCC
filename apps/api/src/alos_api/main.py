@@ -13,6 +13,8 @@ from .context import ContextMiddleware, RequestContext
 from .contexts.application.api import router as application_router
 from .contexts.assessment.api import router as assessment_router
 from .contexts.credit_memo.api import router as credit_memo_router
+from .contexts.disbursement.api import router as disbursement_router
+from .contexts.documentation.api import router as documentation_router
 from .deps import get_audit_store, require_context
 
 
@@ -44,6 +46,8 @@ def create_app() -> FastAPI:
     app.include_router(application_router)
     app.include_router(assessment_router)
     app.include_router(credit_memo_router)
+    app.include_router(documentation_router)
+    app.include_router(disbursement_router)
 
     # Serve the demonstrator site (apps/web) at /app if present.
     _mount_web(app)

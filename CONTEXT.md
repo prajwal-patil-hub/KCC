@@ -78,12 +78,23 @@ Prometheus/Grafana/OpenTelemetry.
   deterministic template memo, plus manual/skip options — the workflow never
   blocks on AI. `GET /ai/health` drives the UI. Provider via `ALOS_LLM_PROVIDER`
   (none|mock|real). New `MemoGenerated` workflow stage.
-- **Demonstrator site DONE (`apps/web`)** — served at `/app`; glassmorphism UI
-  showing AI status and the template/manual/skip controls when AI is off.
+- **Workflow/saga engine DONE (ADR-0004)** — `platform/workflow.py`: the KCC
+  lifecycle is a config-driven, versioned `WorkflowDefinition`; the service
+  enforces transition legality, maker-checker, and per-stage role requirements.
+- **Documentation → Disbursement → CBS DONE** — NESL/eStamp/eSign saga with
+  compensation on partial failure; idempotent money events (double-disburse →
+  one effect, same reference); reconciliation store + `/reconciliation/report`.
+- **Full lifecycle workspace site DONE (`apps/web`)** — served at `/app`;
+  glassmorphism UI with a derived workflow timeline, health-score ring, and
+  stage-aware actions (memo with AI fallback, maker/checker/sanction, docs,
+  disburse, CBS, reconciliation). Verified end-to-end over HTTP.
+- **21 tests green** (engine 15 + API 21... API suite alone is 21). Full
+  lead→CBS flow, idempotency, saga compensation, role enforcement, tenant
+  isolation, audit chain, timeline/health all covered.
 - **Not yet built:** real Postgres/Redis/Kafka drivers behind the existing
-  interfaces, real integrations (behind flags), the config-driven workflow/saga
-  engine, additional AI agents, and the production Next.js + field PWA. See
-  roadmap M1–M2.
+  interfaces, real (non-mock) integrations behind feature flags, additional AI
+  agents (Land/Risk/Fraud/Compliance), renewal + 2nd product, and the production
+  Next.js + offline field PWA. See roadmap M2–M3.
 
 ## Where things live
 ```
@@ -96,11 +107,12 @@ packages/eligibility-engine/   the first built component
 ```
 
 ## What to do next (proposed)
-Milestone 0 is done. Next is Milestone 1: (a) the AI Credit-Memo agent —
-grounded, governed, overridable — drafting the memo around the computed figures;
-(b) the config-driven workflow/saga engine replacing the hard-coded stage list;
-(c) mock Documentation → Disbursement → CBS stages with idempotency +
-reconciliation. Full plan in `docs/07-roadmap.md`.
+Milestones 0 and 1 are done (full KCC lead→CBS lifecycle on mocks, end-to-end).
+Next, Milestone 2: swap an in-memory store for a real driver (Postgres event
+store + RLS) behind the existing interfaces, then replace one mock integration
+(e.g. KYC) with a real/sandbox adapter behind a feature flag, with contract
+tests. Then renewal + a 2nd product (config-only) to prove the multi-product
+seam. Full plan in `docs/07-roadmap.md`.
 
 ## Working agreement
 - Decisions that are hard to reverse or touch money → write an ADR first.

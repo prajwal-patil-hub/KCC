@@ -15,7 +15,7 @@ from ...integrations.kyc import MockKycAdapter
 from ...platform.events import ConcurrencyError
 from ...platform.makerchecker import MakerCheckerViolation
 from ...platform.tenancy import TenantIsolationError
-from .aggregate import InvalidTransition
+from ...platform.workflow import InvalidTransition, RoleNotPermitted
 from .service import ApplicationService
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -141,6 +141,54 @@ def get_history(
     return _guarded(_do)
 
 
+@router.get("/{application_id}/timeline")
+def get_timeline(
+    application_id: str,
+    ctx: RequestContext = Depends(require_context),
+    svc: ApplicationService = Depends(get_application_service),
+):
+    """Workflow timeline + application health score, both DERIVED from the event
+    log so they cannot drift from reality (ADR-0004 / docs/03)."""
+
+    def _do():
+        app = svc.get(application_id)
+        done = set(app.completed_stages)
+        stages = svc.workflow.stages
+        timeline = []
+        current_reached = True
+        for s in stages:
+            status = "done" if s.name in done else ("current" if current_reached else "pending")
+            if status == "current":
+                current_reached = False
+            # 'current' = the first not-yet-done stage
+            timeline.append({
+                "name": s.name,
+                "description": s.description,
+                "requires_checker": s.requires_checker,
+                "automated": s.automated,
+                "status": "done" if s.name in done else "pending",
+            })
+        completed = sum(1 for t in timeline if t["status"] == "done")
+        total = len(timeline)
+        # Health score: progress through the workflow, lightly penalised if the
+        # memo step was skipped (a known risk signal).
+        memo_skipped = (app.memo or {}).get("mode") == "skipped"
+        health = round(100 * completed / total) - (10 if memo_skipped else 0)
+        return {
+            "application_id": application_id,
+            "product": svc.workflow.product,
+            "workflow_version": svc.workflow.version,
+            "current_stage": app.stage,
+            "completed": completed,
+            "total": total,
+            "health_score": max(0, health),
+            "flags": (["memo_skipped"] if memo_skipped else []),
+            "timeline": timeline,
+        }
+
+    return _guarded(_do)
+
+
 def _guarded(fn):
     """Translate domain errors into HTTP status codes."""
     try:
@@ -151,5 +199,7 @@ def _guarded(fn):
         raise HTTPException(status_code=403, detail=str(exc))
     except MakerCheckerViolation as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    except RoleNotPermitted as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except (InvalidTransition, ConcurrencyError) as exc:
         raise HTTPException(status_code=409, detail=str(exc))
