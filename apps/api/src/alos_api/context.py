@@ -49,6 +49,11 @@ def reset_context(token: contextvars.Token) -> None:
         _ctx.set(None)
 
 
+def clear_context() -> None:
+    """Drop any bound context (used by tests to stay isolated)."""
+    _ctx.set(None)
+
+
 def current_context() -> RequestContext:
     ctx = _ctx.get()
     if ctx is None:

@@ -16,10 +16,14 @@ from alos_api.platform.idempotency import IdempotencyStore
 
 @pytest.fixture(autouse=True)
 def _reset_stores():
+    from alos_api.context import clear_context
+
+    clear_context()  # no request context leaks between tests
     deps._event_store = InMemoryEventStore()
     deps._audit_store = InMemoryAuditStore()
     deps._idempotency = IdempotencyStore()
     yield
+    clear_context()
 
 
 @pytest.fixture

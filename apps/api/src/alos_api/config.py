@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     app_name: str = "ALOS API"
     environment: str = "dev"  # dev | staging | prod
 
+    # Storage backend for the event + audit stores. "memory" is the default for
+    # dev/CI; "postgres" enables the RLS-backed durable stores (ADR-0002/0003).
+    storage: str = "memory"  # memory | postgres
+    database_url: str = "postgresql://alos_app:alos_pw@127.0.0.1:5432/alos"
+
     # ADR-0006: mock-first. Never silently default to real adapters.
     integration_mode: str = "mock"  # mock | sandbox | prod
 

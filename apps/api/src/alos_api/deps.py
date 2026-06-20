@@ -31,8 +31,21 @@ from .platform.idempotency import IdempotencyStore
 
 # --- singletons -----------------------------------------------------------
 
-_event_store: EventStore = InMemoryEventStore()
-_audit_store: AuditStore = InMemoryAuditStore()
+def _make_stores(settings: Settings) -> tuple[EventStore, AuditStore]:
+    """Select the storage backend (ADR-0002/0003). Postgres is imported lazily so
+    dev/CI without psycopg or a database still run on the in-memory stores."""
+    if settings.storage == "postgres":
+        from .platform.pg_audit import PostgresAuditStore
+        from .platform.pg_events import PostgresEventStore
+
+        return (
+            PostgresEventStore(settings.database_url),
+            PostgresAuditStore(settings.database_url),
+        )
+    return InMemoryEventStore(), InMemoryAuditStore()
+
+
+_event_store, _audit_store = _make_stores(get_settings())
 _idempotency: IdempotencyStore = IdempotencyStore()
 _reconciliation: ReconciliationStore = ReconciliationStore()
 

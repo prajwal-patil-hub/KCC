@@ -88,13 +88,18 @@ Prometheus/Grafana/OpenTelemetry.
   glassmorphism UI with a derived workflow timeline, health-score ring, and
   stage-aware actions (memo with AI fallback, maker/checker/sanction, docs,
   disburse, CBS, reconciliation). Verified end-to-end over HTTP.
-- **21 tests green** (engine 15 + API 21... API suite alone is 21). Full
-  lead→CBS flow, idempotency, saga compensation, role enforcement, tenant
-  isolation, audit chain, timeline/health all covered.
-- **Not yet built:** real Postgres/Redis/Kafka drivers behind the existing
-  interfaces, real (non-mock) integrations behind feature flags, additional AI
-  agents (Land/Risk/Fraud/Compliance), renewal + 2nd product, and the production
-  Next.js + offline field PWA. See roadmap M2–M3.
+- **Postgres event + audit stores with RLS DONE (Milestone 2, ADR-0003)** —
+  `platform/pg_events.py`, `platform/pg_audit.py`, `migrations/0001_init.sql`.
+  Selected via `ALOS_STORAGE=postgres`; tenant isolation enforced by Postgres
+  Row-Level Security (FORCE RLS, non-superuser app role). Verified against a real
+  database: RLS hides other tenants' rows, WITH CHECK blocks cross-tenant insert,
+  optimistic concurrency holds, per-tenant hash-chained audit verifies, and the
+  full lead→CBS lifecycle runs over HTTP on the Postgres backend.
+- **26 tests green** (API 21 in-memory + 5 Postgres RLS; engine 15 separately).
+- **Not yet built:** Redis/Kafka drivers (idempotency + outbox), real (non-mock)
+  integrations behind feature flags, additional AI agents (Land/Risk/Fraud/
+  Compliance), renewal + 2nd product, and the production Next.js + offline field
+  PWA. See roadmap M2 (remainder)–M3.
 
 ## Where things live
 ```
