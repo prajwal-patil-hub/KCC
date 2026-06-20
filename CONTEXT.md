@@ -95,11 +95,19 @@ Prometheus/Grafana/OpenTelemetry.
   database: RLS hides other tenants' rows, WITH CHECK blocks cross-tenant insert,
   optimistic concurrency holds, per-tenant hash-chained audit verifies, and the
   full lead→CBS lifecycle runs over HTTP on the Postgres backend.
-- **26 tests green** (API 21 in-memory + 5 Postgres RLS; engine 15 separately).
-- **Not yet built:** Redis/Kafka drivers (idempotency + outbox), real (non-mock)
-  integrations behind feature flags, additional AI agents (Land/Risk/Fraud/
-  Compliance), renewal + 2nd product, and the production Next.js + offline field
-  PWA. See roadmap M2 (remainder)–M3.
+- **Transactional outbox DONE (ADR-0002)** — `migrations/0002_outbox.sql`,
+  `platform/outbox.py`. The outbox row is written in the SAME Postgres
+  transaction as the event (no dual-write); an `OutboxRelay` drains unpublished
+  rows to a pluggable `MessageBus` (in-memory now, Kafka-shaped adapter behind
+  `ALOS_BUS`). The relay runs under a BYPASSRLS role (trusted infra spanning all
+  tenants); tenants' `/outbox/pending` view stays RLS-scoped. Verified over HTTP:
+  events accumulate, relay publishes + marks them, second run is a no-op.
+- **30 tests green** (API 21 in-memory + 5 Postgres RLS + 4 outbox; engine 15
+  separately).
+- **Not yet built:** Redis idempotency driver, a real Kafka producer, real
+  (non-mock) integrations behind feature flags, additional AI agents (Land/Risk/
+  Fraud/Compliance), renewal + 2nd product, and the production Next.js + offline
+  field PWA. See roadmap M2 (remainder)–M3.
 
 ## Where things live
 ```

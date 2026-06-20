@@ -23,7 +23,8 @@ import pytest
 DSN = os.environ.get("ALOS_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DSN, reason="ALOS_DATABASE_URL not set")
 
-MIGRATION = Path(__file__).resolve().parents[1] / "migrations" / "0001_init.sql"
+MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
+MIGRATIONS = [MIGRATIONS_DIR / "0001_init.sql", MIGRATIONS_DIR / "0002_outbox.sql"]
 
 
 @pytest.fixture
@@ -34,7 +35,8 @@ def pg(monkeypatch):
     from alos_api.platform.pg_audit import PostgresAuditStore
     from alos_api.platform.pg_events import PostgresEventStore
 
-    db.apply_migration(DSN, MIGRATION)  # fresh schema each test
+    for m in MIGRATIONS:  # fresh schema each test
+        db.apply_migration(DSN, m)
     events = PostgresEventStore(DSN)
     audit = PostgresAuditStore(DSN)
 

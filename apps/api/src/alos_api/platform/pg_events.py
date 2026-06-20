@@ -48,6 +48,18 @@ class PostgresEventStore:
                                 e.schema_version, e.occurred_at,
                             ),
                         )
+                        # Transactional outbox: same transaction as the event, so
+                        # the event and its publish-intent commit atomically.
+                        cur.execute(
+                            """INSERT INTO outbox
+                               (stream_id, sequence, type, payload, tenant_id,
+                                correlation_id, occurred_at)
+                               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                            (
+                                e.stream_id, e.sequence, e.type, Jsonb(e.payload),
+                                e.tenant_id, e.correlation_id, e.occurred_at,
+                            ),
+                        )
                 except UniqueViolation as exc:
                     # A concurrent append took this sequence first.
                     raise ConcurrencyError(

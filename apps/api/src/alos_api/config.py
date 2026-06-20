@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     storage: str = "memory"  # memory | postgres
     database_url: str = "postgresql://alos_app:alos_pw@127.0.0.1:5432/alos"
 
+    # Transactional outbox relay (ADR-0002). The relay uses a BYPASSRLS role since
+    # it spans all tenants. The bus is pluggable: in-memory for dev/CI, Kafka in prod.
+    relay_database_url: str = "postgresql://alos_relay:relay_pw@127.0.0.1:5432/alos"
+    bus: str = "memory"  # memory | kafka
+    kafka_bootstrap_servers: str = "localhost:9092"
+
     # ADR-0006: mock-first. Never silently default to real adapters.
     integration_mode: str = "mock"  # mock | sandbox | prod
 

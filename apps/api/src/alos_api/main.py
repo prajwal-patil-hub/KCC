@@ -6,7 +6,7 @@ Each bounded context contributes a router; they share the platform kernel
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 
 from .config import get_settings
 from .context import ContextMiddleware, RequestContext
@@ -15,7 +15,7 @@ from .contexts.assessment.api import router as assessment_router
 from .contexts.credit_memo.api import router as credit_memo_router
 from .contexts.disbursement.api import router as disbursement_router
 from .contexts.documentation.api import router as documentation_router
-from .deps import get_audit_store, require_context
+from .deps import get_audit_store, get_outbox_relay, require_context
 
 
 def create_app() -> FastAPI:
@@ -42,6 +42,32 @@ def create_app() -> FastAPI:
         """Tamper-evidence check on the hash-chained audit store (docs/06)."""
         store = get_audit_store()
         return {"chain_intact": store.verify_chain()}
+
+    @app.get("/outbox/pending", tags=["platform"])
+    def outbox_pending(ctx: RequestContext = Depends(require_context)) -> dict:
+        """Count of this tenant's unpublished outbox rows (RLS-scoped)."""
+        if settings.storage != "postgres":
+            raise HTTPException(400, "Outbox requires ALOS_STORAGE=postgres")
+        from .platform.db import get_pool, set_tenant
+
+        with get_pool(settings.database_url).connection() as conn:
+            with conn.cursor() as cur:
+                set_tenant(cur, ctx.principal.tenant_id)
+                cur.execute("SELECT count(*) FROM outbox WHERE published_at IS NULL")
+                pending = cur.fetchone()[0]
+            conn.commit()
+        return {"pending": pending}
+
+    @app.post("/outbox/relay/run", tags=["platform"])
+    def outbox_relay_run(
+        ctx: RequestContext = Depends(require_context),
+        relay=Depends(get_outbox_relay),
+    ) -> dict:
+        """Drain the outbox once (admin/operations). The relay spans all tenants."""
+        if settings.storage != "postgres":
+            raise HTTPException(400, "Outbox requires ALOS_STORAGE=postgres")
+        published = relay.run_once()
+        return {"published": published}
 
     app.include_router(application_router)
     app.include_router(assessment_router)

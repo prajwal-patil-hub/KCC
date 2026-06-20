@@ -9,6 +9,17 @@ the application sets per transaction. `FORCE ROW LEVEL SECURITY` ensures even th
 table owner is subject to the policies. `UPDATE`/`DELETE` are rewritten to NOTHING
 so both stores are append-only.
 
+`0002_outbox.sql` adds the **transactional outbox** (ADR-0002), also RLS-scoped.
+The outbox row is written in the same transaction as the event; a relay
+(`platform/outbox.py`) under a **BYPASSRLS** role drains unpublished rows to the
+message bus and stamps `published_at`. Create the relay role separately:
+
+```bash
+sudo -u postgres psql -c "CREATE ROLE alos_relay LOGIN PASSWORD 'relay_pw' NOSUPERUSER BYPASSRLS;"
+sudo -u postgres psql -c "GRANT CONNECT ON DATABASE alos TO alos_relay;"
+# then re-run 0002 (it grants SELECT/UPDATE on outbox to alos_relay if present)
+```
+
 ## Apply
 
 ```bash

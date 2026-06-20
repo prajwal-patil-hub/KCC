@@ -50,6 +50,28 @@ _idempotency: IdempotencyStore = IdempotencyStore()
 _reconciliation: ReconciliationStore = ReconciliationStore()
 
 
+def _make_bus(settings: Settings):
+    from .platform.outbox import InMemoryBus, KafkaBus
+
+    if settings.bus == "kafka":
+        return KafkaBus(settings.kafka_bootstrap_servers)
+    return InMemoryBus()
+
+
+# Process-wide bus so an in-memory bus accumulates published messages observably.
+_bus = _make_bus(get_settings())
+
+
+def get_bus():
+    return _bus
+
+
+def get_outbox_relay(settings: Settings = Depends(get_settings)):
+    from .platform.outbox import OutboxRelay
+
+    return OutboxRelay(settings.relay_database_url, _bus)
+
+
 def get_event_store() -> EventStore:
     return _event_store
 
