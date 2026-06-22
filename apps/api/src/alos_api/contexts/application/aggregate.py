@@ -20,6 +20,7 @@ from ...platform.workflow import InvalidTransition  # noqa: F401
 class LoanApplication:
     application_id: str
     tenant_id: str
+    product: str = "KCC"
     stage: str | None = None
     maker_user_id: str | None = None
     customer: dict = field(default_factory=dict)
@@ -47,6 +48,9 @@ class LoanApplication:
         name = e.type.split(".", 1)[-1]
         self.stage = name
         self.completed_stages.append(name)
+        # The creating event carries the product (chooses the workflow).
+        if isinstance(e.payload, dict) and e.payload.get("product"):
+            self.product = e.payload["product"]
         if name == "MakerReviewed":
             self.maker_user_id = e.actor_id
         mapping = {

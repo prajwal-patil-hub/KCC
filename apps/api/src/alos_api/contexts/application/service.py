@@ -18,25 +18,20 @@ from ...platform.tenancy import assert_tenant
 from ...platform.workflow import (
     RoleNotPermitted,
     WorkflowDefinition,
-    kcc_workflow,
+    get_workflow,
 )
 from .aggregate import LoanApplication
 
 
 class ApplicationService:
-    def __init__(
-        self,
-        events: EventStore,
-        audit: AuditStore,
-        workflow: WorkflowDefinition | None = None,
-    ) -> None:
+    def __init__(self, events: EventStore, audit: AuditStore) -> None:
         self._events = events
         self._audit = audit
-        self._workflow = workflow or kcc_workflow()
 
-    @property
-    def workflow(self) -> WorkflowDefinition:
-        return self._workflow
+    def workflow_for(self, app: LoanApplication) -> WorkflowDefinition:
+        """Resolve the workflow from the application's product (config-driven,
+        multi-product — ADR-0004). No product-specific branching in this service."""
+        return get_workflow(app.product)
 
     # --- helpers ----------------------------------------------------------
 
@@ -71,21 +66,32 @@ class ApplicationService:
 
     # --- commands ---------------------------------------------------------
 
-    def create_lead(self, payload: dict) -> LoanApplication:
+    def create(self, product: str, payload: dict) -> LoanApplication:
+        """Create an application for any registered product; emit that product's
+        first workflow stage (LeadCreated for KCC/Dairy, RenewalInitiated for
+        renewal). The product is recorded on the creating event."""
+        workflow = get_workflow(product)
+        first = workflow.names()[0]
         application_id = str(uuid.uuid4())
-        self._workflow.assert_transition(None, "LeadCreated")
-        self._emit(application_id, 0, "application.LeadCreated", payload)
+        workflow.assert_transition(None, first)
+        self._emit(
+            application_id, 0, f"application.{first}", {**payload, "product": product}
+        )
         return self._load(application_id)
+
+    def create_lead(self, payload: dict) -> LoanApplication:
+        return self.create(payload.get("product", "KCC"), payload)
 
     def advance(
         self, application_id: str, target: str, payload: dict | None = None
     ) -> LoanApplication:
         app = self._load(application_id)
+        workflow = self.workflow_for(app)
         principal = current_context().principal
-        stage = self._workflow.get(target)
+        stage = workflow.get(target)
 
         # 1) transition legality
-        self._workflow.assert_transition(app.stage, target)
+        workflow.assert_transition(app.stage, target)
         # 2) Separation of Duties (before role, so SoD violations surface as 409)
         if stage.requires_checker:
             assert_distinct(app.maker_user_id, principal.user_id)

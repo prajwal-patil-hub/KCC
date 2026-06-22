@@ -14,11 +14,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from alos_eligibility import (
+    CattleUnit,
     CropPlan,
+    DairyEligibilityInput,
     EligibilityInput,
     LandParcel,
     Liabilities,
+    compute_dairy_eligibility,
     compute_kcc_eligibility,
+    default_dairy_policy,
     default_policy,
 )
 
@@ -122,8 +126,57 @@ def compute_eligibility(
 ):
     result = compute_kcc_eligibility(_to_engine_input(body), default_policy())
     result_dict = _result_to_dict(result)
+    _record_eligibility(svc, application_id, result_dict)
+    return result_dict
+
+
+# --- dairy (2nd product) --------------------------------------------------
+
+class CattleBody(BaseModel):
+    animal_type: str
+    count: int = Field(gt=0)
+    insurance_premium: float = 0
+
+
+class DairyEligibilityBody(BaseModel):
+    cattle: list[CattleBody]
+    existing_liabilities: float = 0
+
+
+@router.post("/{application_id}/dairy-eligibility")
+def compute_dairy(
+    application_id: str,
+    body: DairyEligibilityBody,
+    ctx: RequestContext = Depends(require_context),
+    svc: ApplicationService = Depends(get_application_service),
+):
+    """Dairy product eligibility — a different deterministic rule, recorded into
+    the SAME EligibilityComputed stage so the memo/disbursement consume it
+    unchanged. Proves a new product is a new rule + config, not core changes."""
+    inp = DairyEligibilityInput(
+        cattle=[
+            CattleUnit(c.animal_type, c.count,
+                       insurance_premium=Decimal(str(c.insurance_premium)))
+            for c in body.cattle
+        ],
+        existing_liabilities=Decimal(str(body.existing_liabilities)),
+    )
+    r = compute_dairy_eligibility(inp, default_dairy_policy())
+    result_dict = {
+        "eligible": r.eligible,
+        "policy_version": r.policy_version,
+        "collateral_free": r.collateral_free,
+        "psl_category": r.psl_category,
+        "reasons": r.reasons,
+        "breakup": r.breakup,
+        "animal_trace": r.animal_trace,
+    }
+    _record_eligibility(svc, application_id, result_dict)
+    return result_dict
+
+
+def _record_eligibility(svc: ApplicationService, application_id: str, result_dict: dict):
     try:
-        # Record the computed result on the application's auditable history.
         svc.advance(application_id, "EligibilityComputed", result_dict)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -131,4 +184,3 @@ def compute_eligibility(
         raise HTTPException(status_code=403, detail=str(exc))
     except (InvalidTransition, ConcurrencyError) as exc:
         raise HTTPException(status_code=409, detail=str(exc))
-    return result_dict

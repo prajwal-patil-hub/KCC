@@ -45,6 +45,7 @@ def _view(app) -> dict:
     return {
         "application_id": app.application_id,
         "tenant_id": app.tenant_id,
+        "product": app.product,
         "stage": app.stage,
         "maker_user_id": app.maker_user_id,
         "version": app.version,
@@ -63,6 +64,33 @@ def create_lead(
 ):
     app = svc.create_lead(body.model_dump())
     return _view(app)
+
+
+@router.post("/{application_id}/renew", status_code=201)
+def renew(
+    application_id: str,
+    ctx: RequestContext = Depends(require_context),
+    svc: ApplicationService = Depends(get_application_service),
+):
+    """Open a KCC-RENEWAL application against a live (disbursed) loan. The renewal
+    is a separate product/workflow (config-only) that revalidates and recomputes."""
+    def _do():
+        source = svc.get(application_id)
+        if source.stage != "CbsPosted":
+            raise HTTPException(
+                status_code=409,
+                detail="Renewal requires a live loan (stage CbsPosted)",
+            )
+        renewal = svc.create("KCC-RENEWAL", {
+            "original_application_id": application_id,
+            "applicant_name": (source.customer or {}).get("applicant_name")
+            or (source.customer or {}).get("customer_id"),
+            "customer": source.customer,
+            "prior_net_limit": (source.eligibility or {}).get("breakup", {}).get("net_limit"),
+        })
+        return _view(renewal)
+
+    return _guarded(_do)
 
 
 @router.post("/{application_id}/link-customer")
@@ -152,8 +180,9 @@ def get_timeline(
 
     def _do():
         app = svc.get(application_id)
+        workflow = svc.workflow_for(app)
         done = set(app.completed_stages)
-        stages = svc.workflow.stages
+        stages = workflow.stages
         timeline = []
         current_reached = True
         for s in stages:
@@ -176,8 +205,8 @@ def get_timeline(
         health = round(100 * completed / total) - (10 if memo_skipped else 0)
         return {
             "application_id": application_id,
-            "product": svc.workflow.product,
-            "workflow_version": svc.workflow.version,
+            "product": workflow.product,
+            "workflow_version": workflow.version,
             "current_stage": app.stage,
             "completed": completed,
             "total": total,

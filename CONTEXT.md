@@ -109,12 +109,21 @@ Prometheus/Grafana/OpenTelemetry.
   vendor shape and keeps the mock honest (`assert_kyc_contract`). Only tokenised/
   masked Aadhaar is persisted. A runnable vendor stub lives in
   `scripts/kyc_sandbox.py`. Verified over real HTTP with the flag flipped.
-- **38 tests green** (API 21 in-memory + 8 KYC contract + 5 Postgres RLS + 4
-  outbox; engine 15 separately).
+- **2nd product (Dairy) + renewal via config DONE (ADR-0004/0001)** — adding
+  them touched only config: `dairy_workflow()` + `kcc_renewal_workflow()` in a
+  product registry (`get_workflow`), and a `compute_dairy_eligibility` rule added
+  *alongside* KCC in the engine package. The application service/aggregate/stores/
+  maker-checker/audit/RLS are unchanged; the KCC workflow and KCC engine are
+  untouched. Dairy has a genuinely different lifecycle (no land, no NESL/docs
+  stage); renewal is its own product/workflow. Verified: full Dairy lead→CBS,
+  Dairy rejects the documentation stage, KCC workflow still has it, renewal runs
+  to Renewed.
+- **66 tests green** (API 45 = 21 in-memory + 8 KYC contract + 5 Postgres RLS +
+  4 outbox + 7 multi-product; engine 21 = 15 KCC + 6 dairy).
 - **Not yet built:** Redis idempotency driver, a real Kafka producer, more real
   integrations behind flags (land records, CBS, NESL/eSign), additional AI agents
-  (Land/Risk/Fraud/Compliance), renewal + 2nd product, and the production Next.js
-  + offline field PWA. See roadmap M2 (remainder)–M3.
+  (Land/Risk/Fraud/Compliance), product selection in the web UI, and the
+  production Next.js + offline field PWA. See roadmap M3–M4.
 
 ## Where things live
 ```

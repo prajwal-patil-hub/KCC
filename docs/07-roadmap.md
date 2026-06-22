@@ -39,7 +39,14 @@ time behind feature flags.
 - Security hardening: STRIDE reviews, secret scanning, pen-test prep.
 - Observability: business KPI dashboards (TAT per stage, approval rate).
 
-## Milestone 3 — Renewal + 2nd product proof
+## Milestone 3 — Renewal + 2nd product proof  ✅ DONE (config-only)
+Implemented as configuration with zero edits to the KCC module/engine:
+`dairy_workflow()` + `kcc_renewal_workflow()` in a product registry, and a
+`compute_dairy_eligibility` rule alongside the KCC rule. Dairy has a different
+lifecycle (no documentation stage); renewal is its own product. See
+`tests/test_multi_product.py`.
+
+### original notes
 - KCC **renewal** flow (revalidation + recompute).
 - Add a 2nd product (e.g. Dairy/Tractor) **as config + module** to prove the
   multi-product seam (no edits to KCC module).

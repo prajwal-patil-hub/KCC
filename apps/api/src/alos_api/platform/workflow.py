@@ -89,3 +89,75 @@ def kcc_workflow() -> WorkflowDefinition:
                   description="Posted to CBS ledger + reconciled"),
         ),
     )
+
+
+def dairy_workflow() -> WorkflowDefinition:
+    """Dairy (allied activity) — a DIFFERENT lifecycle expressed purely as config.
+    Note: no land verification and no NESL/eStamp documentation stage (small
+    allied loans), proving the engine makes no KCC-specific assumptions."""
+    return WorkflowDefinition(
+        product="DAIRY",
+        version="dairy-flow/v1",
+        stages=(
+            Stage("LeadCreated", description="Lead captured"),
+            Stage("CustomerLinked", description="Customer profile linked"),
+            Stage("KycCompleted", description="Identity verified (KYC)"),
+            Stage("EligibilityComputed", description="Deterministic dairy limit computed"),
+            Stage("MemoGenerated", description="Credit memo produced (AI optional)"),
+            Stage("MakerReviewed", required_roles=frozenset({"Maker"}),
+                  description="Maker review"),
+            Stage("CheckerReviewed", requires_checker=True,
+                  required_roles=frozenset({"Checker"}),
+                  description="Independent checker review"),
+            Stage("Sanctioned", required_roles=frozenset({"SanctionAuthority"}),
+                  description="Sanction by authority"),
+            # No DocumentsExecuted stage — dairy disburses directly after sanction.
+            Stage("Disbursed", automated=True,
+                  description="Funds disbursed (idempotent money event)"),
+            Stage("CbsPosted", automated=True,
+                  description="Posted to CBS ledger + reconciled"),
+        ),
+    )
+
+
+def kcc_renewal_workflow() -> WorkflowDefinition:
+    """KCC renewal — revalidate + recompute + re-approve. Also config-only."""
+    return WorkflowDefinition(
+        product="KCC-RENEWAL",
+        version="kcc-renewal-flow/v1",
+        stages=(
+            Stage("RenewalInitiated", description="Renewal opened against a live loan"),
+            Stage("EligibilityComputed", description="Limit recomputed at renewal"),
+            Stage("MemoGenerated", description="Renewal memo (AI optional)"),
+            Stage("MakerReviewed", required_roles=frozenset({"Maker"}),
+                  description="Maker review"),
+            Stage("CheckerReviewed", requires_checker=True,
+                  required_roles=frozenset({"Checker"}),
+                  description="Independent checker review"),
+            Stage("Renewed", required_roles=frozenset({"SanctionAuthority"}),
+                  description="Renewal sanctioned"),
+        ),
+    )
+
+
+# Product registry. Adding a product = registering a definition here (config),
+# with no change to the application service, aggregate, or stores.
+_WORKFLOWS: dict[str, WorkflowDefinition] = {
+    wf.product: wf
+    for wf in (kcc_workflow(), dairy_workflow(), kcc_renewal_workflow())
+}
+
+
+def register_workflow(definition: WorkflowDefinition) -> None:
+    _WORKFLOWS[definition.product] = definition
+
+
+def get_workflow(product: str) -> WorkflowDefinition:
+    try:
+        return _WORKFLOWS[product]
+    except KeyError as exc:
+        raise InvalidTransition(f"Unknown product '{product}'") from exc
+
+
+def known_products() -> list[str]:
+    return sorted(_WORKFLOWS)
