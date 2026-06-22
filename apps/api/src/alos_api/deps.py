@@ -126,12 +126,20 @@ def get_disbursement_service(
     )
 
 
-def get_kyc_adapter(settings: Settings = Depends(get_settings)) -> MockKycAdapter:
-    return MockKycAdapter(
-        mock_mode=settings.integration_mode == "mock",
-        max_retries=settings.adapter_max_retries,
-        breaker=CircuitBreaker(threshold=settings.circuit_breaker_threshold),
-    )
+def get_kyc_adapter(settings: Settings = Depends(get_settings)):
+    """Feature-flagged KYC provider (ADR-0006). Default mock; ALOS_KYC_PROVIDER=
+    sandbox points the same Port at a vendor sandbox over HTTP."""
+    kw = _adapter_kwargs(settings)
+    if settings.kyc_provider == "sandbox":
+        from .integrations.kyc import SandboxKycAdapter
+
+        kw.pop("mock_mode", None)
+        return SandboxKycAdapter(
+            settings.kyc_sandbox_url,
+            name_match_threshold=settings.kyc_name_match_threshold,
+            **kw,
+        )
+    return MockKycAdapter(**kw)
 
 
 # --- auth dependency ------------------------------------------------------

@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # ADR-0006: mock-first. Never silently default to real adapters.
     integration_mode: str = "mock"  # mock | sandbox | prod
 
+    # Per-integration provider override (feature flag). KYC can point at a vendor
+    # sandbox while everything else stays mocked.
+    kyc_provider: str = "mock"  # mock | sandbox
+    kyc_sandbox_url: str = "http://127.0.0.1:9099"
+    kyc_name_match_threshold: float = 0.8
+
     # AI provider for the Credit-Memo agent. Default "none" = no AI running, so
     # the agent falls back to a deterministic template memo (set "mock" to demo
     # the AI path, or a real provider name in production).

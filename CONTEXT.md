@@ -102,12 +102,19 @@ Prometheus/Grafana/OpenTelemetry.
   `ALOS_BUS`). The relay runs under a BYPASSRLS role (trusted infra spanning all
   tenants); tenants' `/outbox/pending` view stays RLS-scoped. Verified over HTTP:
   events accumulate, relay publishes + marks them, second run is a no-op.
-- **30 tests green** (API 21 in-memory + 5 Postgres RLS + 4 outbox; engine 15
-  separately).
-- **Not yet built:** Redis idempotency driver, a real Kafka producer, real
-  (non-mock) integrations behind feature flags, additional AI agents (Land/Risk/
-  Fraud/Compliance), renewal + 2nd product, and the production Next.js + offline
-  field PWA. See roadmap M2 (remainder)–M3.
+- **KYC sandbox adapter behind a feature flag DONE (ADR-0006)** —
+  `integrations/kyc.py` `SandboxKycAdapter` talks to a vendor sandbox over real
+  HTTP (httpx) behind the same Port as the mock; `ALOS_KYC_PROVIDER=mock|sandbox`.
+  `parse_vendor_kyc` is the single schema boundary; a **contract test** pins the
+  vendor shape and keeps the mock honest (`assert_kyc_contract`). Only tokenised/
+  masked Aadhaar is persisted. A runnable vendor stub lives in
+  `scripts/kyc_sandbox.py`. Verified over real HTTP with the flag flipped.
+- **38 tests green** (API 21 in-memory + 8 KYC contract + 5 Postgres RLS + 4
+  outbox; engine 15 separately).
+- **Not yet built:** Redis idempotency driver, a real Kafka producer, more real
+  integrations behind flags (land records, CBS, NESL/eSign), additional AI agents
+  (Land/Risk/Fraud/Compliance), renewal + 2nd product, and the production Next.js
+  + offline field PWA. See roadmap M2 (remainder)–M3.
 
 ## Where things live
 ```

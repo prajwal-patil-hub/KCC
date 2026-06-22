@@ -47,6 +47,21 @@ Lead → CustomerLinked → KycCompleted → EligibilityComputed → MemoGenerat
 `GET /applications/{id}/timeline` returns the stages + an **application health
 score**, both derived from the event log so they can't drift from reality.
 
+## Real integrations behind feature flags (ADR-0006)
+KYC can point at a vendor sandbox over real HTTP while everything else stays
+mocked:
+```bash
+# terminal 1 — a stand-in vendor sandbox
+PYTHONPATH=src uvicorn scripts.kyc_sandbox:app --port 9099
+# terminal 2 — the API with the flag flipped
+ALOS_KYC_PROVIDER=sandbox ALOS_KYC_SANDBOX_URL=http://127.0.0.1:9099 \
+  PYTHONPATH=src uvicorn alos_api.main:app
+```
+`integrations/kyc.py` has both `MockKycAdapter` and `SandboxKycAdapter` behind one
+Port; `parse_vendor_kyc` is the single schema boundary. The **contract test**
+(`tests/test_kyc_contract.py`) pins the vendor response shape and asserts the
+mock obeys the same `KycResult` contract, so the mock can't drift from reality.
+
 ## Demonstrator site
 A self-contained UI (`apps/web`) is served at **`/app`**. It renders the derived
 workflow timeline + health ring and offers stage-aware actions: the memo step
