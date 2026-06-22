@@ -36,6 +36,18 @@ body {
 .who { display:flex; gap: 14px; align-items:center; }
 .who label { font-size: 12px; color: var(--muted); display:flex; flex-direction:column; gap:4px; }
 .who input { width: 110px; }
+select { background: rgba(0,0,0,.25); border:1px solid var(--stroke); color:var(--text);
+  border-radius:10px; padding:10px 12px; font-size:14px; }
+
+.risk { display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+  padding:12px 14px; border-radius:12px; border:1px solid var(--stroke);
+  background: rgba(255,255,255,.04); margin: 8px 0 6px; font-size:13px; }
+.risk .pill { padding:4px 11px; border-radius:999px; font-weight:700; }
+.risk .Low { background: rgba(52,211,153,.18); color:#aef0d4; }
+.risk .Medium { background: rgba(251,191,36,.16); color:#f3d488; }
+.risk .High { background: rgba(248,113,113,.18); color:#f8b4b4; }
+.risk .flags { color: var(--warn); }
+.risk .ok { color: var(--ok); }
 
 main { max-width: 880px; margin: 0 auto; padding: 8px 16px 60px; display:flex; flex-direction:column; gap:18px; }
 .card { padding: 22px 24px; }

@@ -25,6 +25,15 @@ confidence, citations, latency, token_cost, human_override?}`.
 **Credit-Memo agent is the MVP's first fully-built agent** (highest value,
 clearest guardrails).
 
+**Implemented agents:** Credit-Memo (AI-optional, with deterministic template
+fallback) and the underwriting trio — **Risk, Fraud, Compliance**
+(`contexts/underwriting/agents.py`). Per ADR-0005 their scoring is deterministic
+(reproducible, auditable); AI only adds an optional narrative with a
+deterministic fallback. They run as part of the memo step and via a standalone
+advisory endpoint `GET /applications/{id}/underwriting`; high risk / fraud flags /
+compliance failures set `requires_human_review`. The underwriting result is
+recorded onto the memo event, so it is part of the auditable history.
+
 ## Grounding (RAG)
 Policy/compliance/memo agents retrieve from a versioned corpus: the **bank's own
 credit policy + relevant RBI circulars + scheme docs**. Every claim cites a

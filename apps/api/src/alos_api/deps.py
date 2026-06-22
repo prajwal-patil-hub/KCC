@@ -98,6 +98,12 @@ def get_credit_memo_agent(
     return CreditMemoAgent(get_provider(settings.llm_provider))
 
 
+def get_underwriting_service(settings: Settings = Depends(get_settings)):
+    from .contexts.underwriting.agents import UnderwritingService
+
+    return UnderwritingService(get_provider(settings.llm_provider))
+
+
 def _adapter_kwargs(settings: Settings) -> dict:
     return {
         "mock_mode": settings.integration_mode == "mock",

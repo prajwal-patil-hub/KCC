@@ -67,39 +67,40 @@ function showMemo(memo) {
 }
 
 // --- timeline + stage-aware actions --------------------------------------
+// Each key is the CURRENT (pending) stage; its builder returns the action(s)
+// that complete that stage. Works for any product's workflow.
 const ACTIONS = {
-  EligibilityComputed: (t) => {
+  MemoGenerated: (t) => {
     const notice = $("aiNotice");
     if (!aiAvailable) {
       notice.classList.remove("hidden");
       notice.innerHTML = "⚠️ <b>AI is not running.</b> Use a deterministic template memo, " +
         "write one manually, or skip the step — the workflow won't block.";
     } else notice.classList.add("hidden");
-    t.title = "Credit memo";
+    t.title = "Credit memo (underwriting feeds this)";
     const ai = btn("✨ Generate with AI", () => memo("generate"), "primary", !aiAvailable);
     return [ai,
       btn("📄 Use template memo", () => memo("generate")),
       btn("✍️ Write manually", () => toggle("manualBox")),
       btn("⤼ Skip step…", () => toggle("skipBox"), "ghost")];
   },
-  MemoGenerated: (t) => { t.title = "Maker review"; $("aiNotice").classList.add("hidden");
+  MakerReviewed: (t) => { t.title = "Maker review"; $("aiNotice").classList.add("hidden");
     return [btn("✔ Maker review", () => advance("MakerReviewed"), "primary")]; },
-  MakerReviewed: (t) => { t.title = "Checker review (independent user)";
+  CheckerReviewed: (t) => { t.title = "Checker review (independent user)";
     return [btn("✔ Checker review", () => advance("CheckerReviewed", "checker"), "primary")]; },
-  CheckerReviewed: (t) => { t.title = "Sanction";
+  Sanctioned: (t) => { t.title = "Sanction";
     return [btn("🏛 Sanction (authority)", () => advance("Sanctioned", "authority"), "primary")]; },
-  Sanctioned: (t) => { t.title = "Documentation (NESL · eStamp · eSign)";
+  DocumentsExecuted: (t) => { t.title = "Documentation (NESL · eStamp · eSign)";
     return [btn("📑 Execute documents", () => post(`/applications/${appId}/documents/execute`,
       (d) => showOut("documents", d.documents)), "primary")]; },
-  DocumentsExecuted: (t) => { t.title = "Disbursement";
+  Disbursed: (t) => { t.title = "Disbursement";
     return [btn("💸 Disburse", () => post(`/applications/${appId}/disburse`,
       (d) => showOut(d.idempotent_replay ? "idempotent replay" : "disbursed", d.disbursement)), "primary")]; },
-  Disbursed: (t) => { t.title = "Post to CBS ledger";
+  CbsPosted: (t) => { t.title = "Post to CBS ledger";
     return [btn("🧾 Post to CBS", () => post(`/applications/${appId}/cbs-post`,
       (d) => showOut("cbs", d.cbs)), "primary")]; },
-  CbsPosted: (t) => { t.title = "Complete — reconcile";
-    return [btn("✅ Reconciliation report", async () =>
-      showOut("reconciliation", await api("GET", "/reconciliation/report")), "primary")]; },
+  Renewed: (t) => { t.title = "Approve renewal";
+    return [btn("🔁 Approve renewal", () => advance("Renewed", "authority"), "primary")]; },
 };
 
 function btn(label, onclick, cls = "", disabled = false) {
@@ -159,31 +160,63 @@ async function memo(kind) {
 // --- bootstrap an application --------------------------------------------
 $("seedBtn").onclick = async () => {
   try {
+    const product = $("product").value;
     const lead = await api("POST", "/applications",
-      { applicant_name: $("applicant").value, mobile: "9999999999", product: "KCC" });
+      { applicant_name: $("applicant").value, mobile: "9999999999", product });
     appId = lead.application_id;
     await api("POST", `/applications/${appId}/link-customer`,
       { customer_id: "C-" + appId.slice(0, 6), farmer_class: "small" });
     await api("POST", `/applications/${appId}/kyc`,
       { aadhaar_number: "1234 5678 9012", name: $("applicant").value });
-    const e = await api("POST", `/assessment/${appId}/eligibility`, {
-      parcels: [{ parcel_id: "P1", area_hectares: 2.0, verified: true }],
-      crops: [{ parcel_id: "P1", crop: "wheat", season: "rabi", area_hectares: 2.0 }],
-    });
+
+    let e;
+    if (product === "DAIRY") {
+      e = await api("POST", `/assessment/${appId}/dairy-eligibility`,
+        { cattle: [{ animal_type: "buffalo", count: 2 }] });
+    } else {
+      e = await api("POST", `/assessment/${appId}/eligibility`, {
+        parcels: [{ parcel_id: "P1", area_hectares: 2.0, verified: true }],
+        crops: [{ parcel_id: "P1", crop: "wheat", season: "rabi", area_hectares: 2.0 }],
+      });
+    }
     $("appInfo").classList.remove("hidden");
     $("appInfo").innerHTML =
       `<b>Application</b><span>${appId}</span>` +
+      `<b>Product</b><span>${product}</span>` +
       `<b>Eligible</b><span>${e.eligible}</span>` +
-      `<b>Net KCC limit</b><span>Rs ${Number(e.breakup.net_limit).toLocaleString("en-IN")}</span>` +
+      `<b>Net limit</b><span>Rs ${Number(e.breakup.net_limit).toLocaleString("en-IN")}</span>` +
       `<b>Collateral-free</b><span>${e.collateral_free}</span>` +
       `<b>PSL</b><span>${e.psl_category}</span>`;
     await renderTimeline();
-    toast("Application at eligibility — proceed below.");
+    await renderRisk();
+    toast(`${product} application at eligibility — proceed below.`);
   } catch (e) { toast("Error: " + e.message); }
 };
+
+// Advisory Risk/Fraud/Compliance picture (deterministic core + optional AI).
+async function renderRisk() {
+  if (!appId) return;
+  try {
+    const u = await api("GET", `/applications/${appId}/underwriting`);
+    const panel = $("riskPanel");
+    panel.classList.remove("hidden");
+    const fraud = u.fraud_flags.length
+      ? `<span class="flags">⚑ ${u.fraud_flags.join(", ")}</span>`
+      : `<span class="ok">no fraud signals</span>`;
+    const comp = u.compliance_passed
+      ? `<span class="ok">compliant</span>`
+      : `<span class="flags">compliance issues</span>`;
+    panel.innerHTML =
+      `<b>Underwriting</b>` +
+      `<span class="pill ${u.risk_band}">Risk ${u.risk_band} · ${u.risk_score}</span>` +
+      fraud + comp +
+      `<span>${u.ai_used ? "AI-explained" : "deterministic"}</span>`;
+  } catch { /* underwriting is advisory; ignore if unavailable */ }
+}
 $("resetBtn").onclick = () => { appId = null; $("flowCard").style.display = "none";
   $("appInfo").classList.add("hidden"); $("out").classList.add("hidden");
-  $("meta").classList.add("hidden"); $("health").classList.add("hidden"); };
+  $("meta").classList.add("hidden"); $("health").classList.add("hidden");
+  $("riskPanel").classList.add("hidden"); };
 
 $("manualSave").onclick = async () => {
   const text = $("manualText").value.trim(); if (!text) return toast("Write something first.");

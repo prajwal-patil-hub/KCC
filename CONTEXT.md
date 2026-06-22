@@ -118,12 +118,19 @@ Prometheus/Grafana/OpenTelemetry.
   stage); renewal is its own product/workflow. Verified: full Dairy lead→CBS,
   Dairy rejects the documentation stage, KCC workflow still has it, renewal runs
   to Renewed.
-- **66 tests green** (API 45 = 21 in-memory + 8 KYC contract + 5 Postgres RLS +
-  4 outbox + 7 multi-product; engine 21 = 15 KCC + 6 dairy).
-- **Not yet built:** Redis idempotency driver, a real Kafka producer, more real
-  integrations behind flags (land records, CBS, NESL/eSign), additional AI agents
-  (Land/Risk/Fraud/Compliance), product selection in the web UI, and the
-  production Next.js + offline field PWA. See roadmap M3–M4.
+- **Risk / Fraud / Compliance agents DONE (docs/05, ADR-0005)** —
+  `contexts/underwriting/agents.py`. Deterministic scoring (risk band+score,
+  fraud flags, compliance issues) with an AI-optional narrative + deterministic
+  fallback; governed decision record; high risk/fraud/compliance-fail forces
+  human review. Runs as part of the memo step (recorded onto the memo event) and
+  via advisory `GET /applications/{id}/underwriting`. Web UI shows a risk panel +
+  a product selector (KCC/Dairy), and the stage→action mapping was corrected.
+- **74 tests green** (API 53 = 21 in-memory + 8 KYC contract + 5 Postgres RLS +
+  4 outbox + 7 multi-product + 8 underwriting; engine 21 = 15 KCC + 6 dairy).
+- **Not yet built (future):** Redis idempotency driver, a real Kafka producer,
+  more real integrations behind flags (land records, CBS, NESL/eSign), the
+  Document/Land AI agents, and the production Next.js + offline field PWA.
+  See roadmap M3–M4.
 
 ## Where things live
 ```

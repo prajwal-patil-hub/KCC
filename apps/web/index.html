@@ -32,6 +32,10 @@
       </div>
       <div class="row">
         <input id="applicant" placeholder="Applicant name" value="Ramesh Kumar" />
+        <select id="product" title="Product">
+          <option value="KCC">KCC (crop)</option>
+          <option value="DAIRY">Dairy (allied)</option>
+        </select>
         <button id="seedBtn" class="primary">Create & run to eligibility</button>
         <button id="resetBtn" class="ghost">Reset</button>
       </div>
@@ -42,6 +46,7 @@
       <h2><span class="step">⛓</span> Workflow timeline</h2>
       <div id="timeline" class="timeline"></div>
 
+      <div id="riskPanel" class="risk hidden"></div>
       <div id="aiNotice" class="notice hidden"></div>
       <h3 id="actionTitle" class="action-title">Next step</h3>
       <div id="actions" class="actions"></div>
