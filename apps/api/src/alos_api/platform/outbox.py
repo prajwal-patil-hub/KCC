@@ -15,8 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-import psycopg
-
 
 @dataclass(frozen=True)
 class OutboxMessage:
@@ -68,6 +66,8 @@ class OutboxRelay:
     def run_once(self, batch: int = 100) -> int:
         """Publish up to `batch` unpublished rows; returns the count published.
         FOR UPDATE SKIP LOCKED makes it safe to run multiple relays concurrently."""
+        import psycopg  # lazy: the in-memory path must not require psycopg
+
         with psycopg.connect(self._dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute(

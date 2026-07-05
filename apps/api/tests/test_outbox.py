@@ -14,8 +14,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import psycopg
 import pytest
+
+# Skip the whole module cleanly if psycopg isn't installed (e.g. the no-DB CI job).
+psycopg = pytest.importorskip("psycopg")
 
 DSN = os.environ.get("ALOS_DATABASE_URL")
 RELAY_DSN = os.environ.get("ALOS_RELAY_DATABASE_URL")
