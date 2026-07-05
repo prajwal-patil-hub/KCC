@@ -65,11 +65,72 @@ Prometheus/Grafana/OpenTelemetry.
 ## Current state of the repo (2026-06-18)
 - **Planning complete** for the first cut: improved prompt + gap analysis +
   architecture method + 6 ADRs + domain/system/AI/security docs + roadmap.
-- **Build started:** `packages/eligibility-engine` — the pure, dependency-free,
-  fully unit-tested (15 tests green) deterministic KCC limit calculator. This is
-  Milestone 1.3 and the highest-certainty, zero-external-dependency component.
-- **Not yet built:** the FastAPI app shell, auth/RLS, event/audit stores,
-  adapters, workflow engine, AI orchestrator, web/PWA. See roadmap.
+- **`packages/eligibility-engine`** — pure, dependency-free, fully unit-tested
+  (15 tests) deterministic KCC limit calculator.
+- **`apps/api` — Milestone 0 walking skeleton DONE (7 tests green).** FastAPI
+  modular monolith proving the spine: ASGI context/auth middleware, tenant
+  isolation guard, event-sourced `LoanApplication`, server-side maker-checker,
+  hash-chained audit, mock-first integration adapters (KYC with tokenised
+  Aadhaar), and the eligibility engine wired into the Assessment context. A full
+  KCC lead→sanction flow runs end-to-end on mocks.
+- **Credit-Memo agent DONE (16 API tests green).** AI is optional by design:
+  with a healthy provider it narrates the memo; otherwise it auto-falls-back to a
+  deterministic template memo, plus manual/skip options — the workflow never
+  blocks on AI. `GET /ai/health` drives the UI. Provider via `ALOS_LLM_PROVIDER`
+  (none|mock|real). New `MemoGenerated` workflow stage.
+- **Workflow/saga engine DONE (ADR-0004)** — `platform/workflow.py`: the KCC
+  lifecycle is a config-driven, versioned `WorkflowDefinition`; the service
+  enforces transition legality, maker-checker, and per-stage role requirements.
+- **Documentation → Disbursement → CBS DONE** — NESL/eStamp/eSign saga with
+  compensation on partial failure; idempotent money events (double-disburse →
+  one effect, same reference); reconciliation store + `/reconciliation/report`.
+- **Full lifecycle workspace site DONE (`apps/web`)** — served at `/app`;
+  glassmorphism UI with a derived workflow timeline, health-score ring, and
+  stage-aware actions (memo with AI fallback, maker/checker/sanction, docs,
+  disburse, CBS, reconciliation). Verified end-to-end over HTTP.
+- **Postgres event + audit stores with RLS DONE (Milestone 2, ADR-0003)** —
+  `platform/pg_events.py`, `platform/pg_audit.py`, `migrations/0001_init.sql`.
+  Selected via `ALOS_STORAGE=postgres`; tenant isolation enforced by Postgres
+  Row-Level Security (FORCE RLS, non-superuser app role). Verified against a real
+  database: RLS hides other tenants' rows, WITH CHECK blocks cross-tenant insert,
+  optimistic concurrency holds, per-tenant hash-chained audit verifies, and the
+  full lead→CBS lifecycle runs over HTTP on the Postgres backend.
+- **Transactional outbox DONE (ADR-0002)** — `migrations/0002_outbox.sql`,
+  `platform/outbox.py`. The outbox row is written in the SAME Postgres
+  transaction as the event (no dual-write); an `OutboxRelay` drains unpublished
+  rows to a pluggable `MessageBus` (in-memory now, Kafka-shaped adapter behind
+  `ALOS_BUS`). The relay runs under a BYPASSRLS role (trusted infra spanning all
+  tenants); tenants' `/outbox/pending` view stays RLS-scoped. Verified over HTTP:
+  events accumulate, relay publishes + marks them, second run is a no-op.
+- **KYC sandbox adapter behind a feature flag DONE (ADR-0006)** —
+  `integrations/kyc.py` `SandboxKycAdapter` talks to a vendor sandbox over real
+  HTTP (httpx) behind the same Port as the mock; `ALOS_KYC_PROVIDER=mock|sandbox`.
+  `parse_vendor_kyc` is the single schema boundary; a **contract test** pins the
+  vendor shape and keeps the mock honest (`assert_kyc_contract`). Only tokenised/
+  masked Aadhaar is persisted. A runnable vendor stub lives in
+  `scripts/kyc_sandbox.py`. Verified over real HTTP with the flag flipped.
+- **2nd product (Dairy) + renewal via config DONE (ADR-0004/0001)** — adding
+  them touched only config: `dairy_workflow()` + `kcc_renewal_workflow()` in a
+  product registry (`get_workflow`), and a `compute_dairy_eligibility` rule added
+  *alongside* KCC in the engine package. The application service/aggregate/stores/
+  maker-checker/audit/RLS are unchanged; the KCC workflow and KCC engine are
+  untouched. Dairy has a genuinely different lifecycle (no land, no NESL/docs
+  stage); renewal is its own product/workflow. Verified: full Dairy lead→CBS,
+  Dairy rejects the documentation stage, KCC workflow still has it, renewal runs
+  to Renewed.
+- **Risk / Fraud / Compliance agents DONE (docs/05, ADR-0005)** —
+  `contexts/underwriting/agents.py`. Deterministic scoring (risk band+score,
+  fraud flags, compliance issues) with an AI-optional narrative + deterministic
+  fallback; governed decision record; high risk/fraud/compliance-fail forces
+  human review. Runs as part of the memo step (recorded onto the memo event) and
+  via advisory `GET /applications/{id}/underwriting`. Web UI shows a risk panel +
+  a product selector (KCC/Dairy), and the stage→action mapping was corrected.
+- **74 tests green** (API 53 = 21 in-memory + 8 KYC contract + 5 Postgres RLS +
+  4 outbox + 7 multi-product + 8 underwriting; engine 21 = 15 KCC + 6 dairy).
+- **Not yet built (future):** Redis idempotency driver, a real Kafka producer,
+  more real integrations behind flags (land records, CBS, NESL/eSign), the
+  Document/Land AI agents, and the production Next.js + offline field PWA.
+  See roadmap M3–M4.
 
 ## Where things live
 ```
@@ -82,9 +143,12 @@ packages/eligibility-engine/   the first built component
 ```
 
 ## What to do next (proposed)
-Milestone 0 walking skeleton: FastAPI app shell with auth + tenancy/RLS + event
-store + audit + mock adapter framework, then wire the eligibility engine in
-behind the Assessment context. Full plan in `docs/07-roadmap.md`.
+Milestones 0 and 1 are done (full KCC lead→CBS lifecycle on mocks, end-to-end).
+Next, Milestone 2: swap an in-memory store for a real driver (Postgres event
+store + RLS) behind the existing interfaces, then replace one mock integration
+(e.g. KYC) with a real/sandbox adapter behind a feature flag, with contract
+tests. Then renewal + a 2nd product (config-only) to prove the multi-product
+seam. Full plan in `docs/07-roadmap.md`.
 
 ## Working agreement
 - Decisions that are hard to reverse or touch money → write an ADR first.

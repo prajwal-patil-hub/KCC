@@ -1,6 +1,7 @@
 # ADR-0003 — Multi-tenancy: shared schema + Postgres RLS
 
-**Status:** Accepted · **Date:** 2026-06-18
+**Status:** Accepted · **Implemented** (apps/api Postgres stores, RLS verified) ·
+**Date:** 2026-06-18
 
 ## Context
 Tenants are banks (co-op/RRB/PSU). Strict isolation is mandatory (S7: Tenant A

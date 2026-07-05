@@ -25,6 +25,15 @@ confidence, citations, latency, token_cost, human_override?}`.
 **Credit-Memo agent is the MVP's first fully-built agent** (highest value,
 clearest guardrails).
 
+**Implemented agents:** Credit-Memo (AI-optional, with deterministic template
+fallback) and the underwriting trio — **Risk, Fraud, Compliance**
+(`contexts/underwriting/agents.py`). Per ADR-0005 their scoring is deterministic
+(reproducible, auditable); AI only adds an optional narrative with a
+deterministic fallback. They run as part of the memo step and via a standalone
+advisory endpoint `GET /applications/{id}/underwriting`; high risk / fraud flags /
+compliance failures set `requires_human_review`. The underwriting result is
+recorded onto the memo event, so it is part of the auditable history.
+
 ## Grounding (RAG)
 Policy/compliance/memo agents retrieve from a versioned corpus: the **bank's own
 credit policy + relevant RBI circulars + scheme docs**. Every claim cites a
@@ -43,6 +52,25 @@ source chunk. No ungrounded assertions in regulated outputs.
   cost/latency per agent; alerts on anomalies.
 - **Human-in-the-loop:** below confidence threshold OR above ticket-size
   threshold → mandatory human review. Thresholds are config per tenant/product.
+
+## AI-unavailable handling (graceful degradation) — IMPLEMENTED
+AI is **additive, never load-bearing**. The Credit-Memo agent (apps/api,
+`contexts/credit_memo`) proves the pattern every agent must follow:
+
+- A provider abstraction with a `health()` check. `ALOS_LLM_PROVIDER` selects
+  `none` (default) / `mock` / real. `none` = "no AI running".
+- If no healthy provider **or a live call fails at runtime**, the agent returns a
+  **deterministic template memo** built purely from the eligibility figures —
+  the step still completes and the workflow advances.
+- Explicit human escape hatches, all audited: **manual** memo (write/override)
+  and **skip with a mandatory reason**.
+- `GET /ai/health` returns `ai_available`, `provider`, and `fallback_options` so
+  the UI can disable the AI control and surface template/manual/skip.
+- Every memo result is a decision record (`mode`, `ai_available`, `confidence`,
+  `model`, `prompt_version`, `inputs_hash`, `fallback_reason`).
+
+The rule generalises: **no agent may be on the critical path such that its
+absence blocks the lifecycle.** There is always a deterministic or human path.
 
 ## Cost & latency controls
 - Model routing: small/cheap model for classification, larger for reasoning.

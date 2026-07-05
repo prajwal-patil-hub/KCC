@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALOS — KCC Lending Workspace</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="topbar glass">
+    <div class="brand"><span class="logo">◈</span> ALOS <small>KCC Lending Workspace</small></div>
+    <div class="who">
+      <label>Officer <input id="user" value="ramesh.officer" /></label>
+      <label>Tenant <input id="tenant" value="bankA" /></label>
+      <span id="aiBadge" class="badge badge-muted">AI: checking…</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card glass">
+      <div class="row between">
+        <div>
+          <h2><span class="step">▶</span> Application</h2>
+          <p class="muted">Create a KCC application; integrations are mocked end to end.</p>
+        </div>
+        <div class="health hidden" id="health">
+          <div class="ring" id="ring"><span id="healthNum">0</span></div>
+          <small>Health</small>
+        </div>
+      </div>
+      <div class="row">
+        <input id="applicant" placeholder="Applicant name" value="Ramesh Kumar" />
+        <select id="product" title="Product">
+          <option value="KCC">KCC (crop)</option>
+          <option value="DAIRY">Dairy (allied)</option>
+        </select>
+        <button id="seedBtn" class="primary">Create & run to eligibility</button>
+        <button id="resetBtn" class="ghost">Reset</button>
+      </div>
+      <div id="appInfo" class="kv hidden"></div>
+    </section>
+
+    <section class="card glass" id="flowCard" style="display:none">
+      <h2><span class="step">⛓</span> Workflow timeline</h2>
+      <div id="timeline" class="timeline"></div>
+
+      <div id="riskPanel" class="risk hidden"></div>
+      <div id="aiNotice" class="notice hidden"></div>
+      <h3 id="actionTitle" class="action-title">Next step</h3>
+      <div id="actions" class="actions"></div>
+
+      <div id="manualBox" class="inline-box hidden">
+        <textarea id="manualText" rows="4" placeholder="Write the credit memo…"></textarea>
+        <button id="manualSave" class="primary">Save memo</button>
+      </div>
+      <div id="skipBox" class="inline-box hidden">
+        <input id="skipReason" placeholder="Reason for skipping (required, audited)" />
+        <button id="skipSave" class="primary">Confirm skip</button>
+      </div>
+
+      <pre id="out" class="memo hidden"></pre>
+      <div id="meta" class="meta hidden"></div>
+    </section>
+
+    <div id="toast" class="toast hidden"></div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

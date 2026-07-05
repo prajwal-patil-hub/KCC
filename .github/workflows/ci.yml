@@ -16,3 +16,53 @@ jobs:
           python-version: "3.11"
       - run: pip install pytest
       - run: PYTHONPATH=src python -m pytest -q
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ../../packages/eligibility-engine
+      - run: pip install fastapi uvicorn "pydantic>=2" pydantic-settings httpx pytest
+      - run: PYTHONPATH=src python -m pytest -q
+
+  api-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # RLS only applies to a non-superuser, non-BYPASSRLS role — create one.
+      - run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE alos_app LOGIN PASSWORD 'alos_pw' NOSUPERUSER NOBYPASSRLS;
+          CREATE DATABASE alos OWNER alos_app;
+          -- the outbox relay is trusted infra, so it bypasses RLS
+          CREATE ROLE alos_relay LOGIN PASSWORD 'relay_pw' NOSUPERUSER BYPASSRLS;
+          GRANT CONNECT ON DATABASE alos TO alos_relay;
+          SQL
+      - run: pip install -e ../../packages/eligibility-engine
+      - run: pip install fastapi uvicorn "pydantic>=2" pydantic-settings httpx pytest "psycopg[binary]>=3.1" psycopg_pool
+      - run: PYTHONPATH=src python -m pytest -q
+        env:
+          ALOS_DATABASE_URL: postgresql://alos_app:alos_pw@localhost:5432/alos
+          ALOS_RELAY_DATABASE_URL: postgresql://alos_relay:relay_pw@localhost:5432/alos

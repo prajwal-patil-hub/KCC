@@ -1,6 +1,7 @@
 # ADR-0002 — Selective event sourcing + transactional outbox
 
-**Status:** Accepted · **Date:** 2026-06-18
+**Status:** Accepted · **Implemented** (Postgres event store + outbox + relay,
+verified) · **Date:** 2026-06-18
 
 ## Context
 "Event sourcing" everywhere (v1) is over-engineering: reference data and config

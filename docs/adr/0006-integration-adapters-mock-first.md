@@ -1,6 +1,7 @@
 # ADR-0006 — Integrations as adapters (ports) with mock-first development
 
-**Status:** Accepted · **Date:** 2026-06-18
+**Status:** Accepted · **KYC sandbox adapter + contract test implemented** ·
+**Date:** 2026-06-18
 
 ## Context
 Integrations (Aadhaar, PAN, CKYC, NESL, eSign, eStamp, Account Aggregator,

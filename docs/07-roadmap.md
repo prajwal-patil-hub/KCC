@@ -4,7 +4,7 @@ Strategy: prove the **spine** with a walking skeleton, then a **thin KCC vertica
 slice** that runs end-to-end on mocks, then harden with real adapters one at a
 time behind feature flags.
 
-## Milestone 0 — Foundations (walking skeleton)
+## Milestone 0 — Foundations (walking skeleton)  ✅ DONE
 **Goal:** one bounded context end-to-end, proving every cross-cutting concern.
 - Monorepo + FastAPI app + Next.js app, dockerised, CI green.
 - Auth (OIDC), tenancy + **RLS**, event store, append-only audit, outbox→Kafka.
@@ -13,7 +13,11 @@ time behind feature flags.
 - **DoD:** tenant isolation test passes; an event + audit row is written; trace
   visible end-to-end; no PII in logs.
 
-## Milestone 1 — KCC vertical slice (mock everything external)
+> **Status:** Milestones 0 and 1 are IMPLEMENTED in `apps/api` + `apps/web`
+> (full KCC lead→CBS lifecycle on mocks, 21 tests green, verified over HTTP).
+> Milestone 2 is the next work.
+
+## Milestone 1 — KCC vertical slice (mock everything external)  ✅ DONE
 **Goal:** a full KCC application from lead to mock sanction, decisions correct.
 1. Land capture (offline PWA) + mock land verification.
 2. Crop capture linked to **Scale-of-Finance** reference table (versioned).
@@ -35,7 +39,14 @@ time behind feature flags.
 - Security hardening: STRIDE reviews, secret scanning, pen-test prep.
 - Observability: business KPI dashboards (TAT per stage, approval rate).
 
-## Milestone 3 — Renewal + 2nd product proof
+## Milestone 3 — Renewal + 2nd product proof  ✅ DONE (config-only)
+Implemented as configuration with zero edits to the KCC module/engine:
+`dairy_workflow()` + `kcc_renewal_workflow()` in a product registry, and a
+`compute_dairy_eligibility` rule alongside the KCC rule. Dairy has a different
+lifecycle (no documentation stage); renewal is its own product. See
+`tests/test_multi_product.py`.
+
+### original notes
 - KCC **renewal** flow (revalidation + recompute).
 - Add a 2nd product (e.g. Dairy/Tractor) **as config + module** to prove the
   multi-product seam (no edits to KCC module).

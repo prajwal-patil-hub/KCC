@@ -17,6 +17,14 @@ from .models import (
     LimitBreakup,
 )
 from .engine import compute_kcc_eligibility
+from .dairy import (
+    DairyPolicy,
+    CattleUnit,
+    DairyEligibilityInput,
+    DairyEligibilityResult,
+    compute_dairy_eligibility,
+    default_dairy_policy,
+)
 
 __all__ = [
     "KccPolicy",
@@ -29,6 +37,12 @@ __all__ = [
     "EligibilityResult",
     "LimitBreakup",
     "compute_kcc_eligibility",
+    "DairyPolicy",
+    "CattleUnit",
+    "DairyEligibilityInput",
+    "DairyEligibilityResult",
+    "compute_dairy_eligibility",
+    "default_dairy_policy",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

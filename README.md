@@ -31,13 +31,28 @@ reasoning behind every change live here:
 3. **Tenant isolation via Postgres RLS.** (ADR-0003)
 4. **Every integration behind a mock-first adapter** so the whole flow runs offline. (ADR-0006)
 
-## Build started: eligibility engine
-The first component — a pure, framework-free KCC limit/eligibility calculator —
-is in [`packages/eligibility-engine/`](packages/eligibility-engine/). It encodes
-the RBI KCC formula as configurable, versioned policy and is fully unit-tested.
+## What's built
+**`packages/eligibility-engine/`** — pure, framework-free KCC limit calculator;
+RBI formula as versioned config; fully unit-tested (15).
 
 ```bash
 cd packages/eligibility-engine
-python -m pytest -q
-python -m alos_eligibility.demo   # prints a worked KCC example
+PYTHONPATH=src python -m pytest -q
+PYTHONPATH=src python -m alos_eligibility.demo   # worked KCC example
 ```
+
+**`apps/api/`** — Milestone 0 walking skeleton: FastAPI modular monolith with
+auth/tenant middleware, tenant isolation, event-sourced application lifecycle,
+server-side maker-checker, hash-chained audit, mock-first integration adapters
+(tokenised Aadhaar), and the eligibility engine wired in. A full KCC
+lead→sanction flow runs end-to-end on mocks (7 tests).
+
+```bash
+cd apps/api
+pip install -e ../../packages/eligibility-engine
+pip install fastapi uvicorn "pydantic>=2" pydantic-settings httpx pytest
+PYTHONPATH=src python -m pytest -q
+PYTHONPATH=src uvicorn alos_api.main:app   # API docs at /docs
+```
+
+See [`CONTEXT.md`](CONTEXT.md) for current state and [`docs/07-roadmap.md`](docs/07-roadmap.md) for what's next.
