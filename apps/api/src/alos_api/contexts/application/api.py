@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ...config import Settings, get_settings
 from ...context import RequestContext
 from ...deps import (
     get_application_service,
@@ -91,6 +92,29 @@ def renew(
         return _view(renewal)
 
     return _guarded(_do)
+
+
+class BypassBody(BaseModel):
+    reason: str | None = None
+
+
+@router.post("/{application_id}/bypass")
+def bypass(
+    application_id: str,
+    body: BypassBody | None = None,
+    ctx: RequestContext = Depends(require_context),
+    svc: ApplicationService = Depends(get_application_service),
+    settings: Settings = Depends(get_settings),
+):
+    """TEST-ONLY: force-advance past the current (stuck) stage. Enabled only when
+    ALOS_TEST_BYPASS is on; returns 403 otherwise so it can never fire in prod."""
+    if not settings.test_bypass:
+        raise HTTPException(
+            status_code=403,
+            detail="Bypass is disabled. Set ALOS_TEST_BYPASS=1 to enable (non-prod only).",
+        )
+    reason = (body.reason if body else None) or "test bypass"
+    return _guarded(lambda: _view(svc.bypass(application_id, reason)))
 
 
 @router.post("/{application_id}/link-customer")

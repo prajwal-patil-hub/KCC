@@ -16,6 +16,7 @@ from ...platform.events import Event, EventStore
 from ...platform.makerchecker import assert_distinct
 from ...platform.tenancy import assert_tenant
 from ...platform.workflow import (
+    InvalidTransition,
     RoleNotPermitted,
     WorkflowDefinition,
     get_workflow,
@@ -105,6 +106,29 @@ class ApplicationService:
         return self._load(application_id)
 
     def get(self, application_id: str) -> LoanApplication:
+        return self._load(application_id)
+
+    def bypass(self, application_id: str, reason: str) -> LoanApplication:
+        """TEST-ONLY escape hatch: force-advance to the next workflow stage,
+        skipping gates and the stage's real action (KYC, eligibility, docs,
+        disbursement, etc.). For getting past a step that can't complete in a
+        non-production environment. The event is tagged `_bypassed` and audited.
+        The API layer only exposes this when ALOS_TEST_BYPASS is enabled."""
+        app = self._load(application_id)
+        workflow = self.workflow_for(app)
+        names = workflow.names()
+        if app.stage is None:
+            raise KeyError(f"Application {application_id} has no stage")
+        idx = names.index(app.stage)
+        if idx + 1 >= len(names):
+            raise InvalidTransition(
+                f"Already at the final stage '{app.stage}'; nothing to bypass"
+            )
+        target = names[idx + 1]
+        self._emit(
+            application_id, app.version, f"application.{target}",
+            {"_bypassed": True, "_reason": reason or "test bypass"},
+        )
         return self._load(application_id)
 
     def history(self, application_id: str) -> list[Event]:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException
 
-from .config import get_settings
+from .config import Settings, get_settings
 from .context import ContextMiddleware, RequestContext
 from .contexts.application.api import router as application_router
 from .contexts.assessment.api import router as assessment_router
@@ -28,11 +28,12 @@ def create_app() -> FastAPI:
     app.add_middleware(ContextMiddleware)
 
     @app.get("/health", tags=["platform"])
-    def health() -> dict:
+    def health(s: Settings = Depends(get_settings)) -> dict:
         return {
             "status": "ok",
-            "environment": settings.environment,
-            "integration_mode": settings.integration_mode,
+            "environment": s.environment,
+            "integration_mode": s.integration_mode,
+            "test_bypass": s.test_bypass,
         }
 
     @app.get("/audit/verify", tags=["platform"])

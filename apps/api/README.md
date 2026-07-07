@@ -1,5 +1,40 @@
 # alos-api — KCC walking skeleton (Milestone 0)
 
+## Test it now (one command, nothing external)
+
+```bash
+bash apps/api/scripts/run_test_mode.sh        # → http://localhost:8000/app/
+```
+This runs everything self-contained: in-memory stores (no DB), all integrations
+mocked, AI off, and the **per-stage bypass enabled**. Open the web workspace,
+create an application, and click through — or drive the API directly.
+
+### The bypass escape hatch (for when a step gets stuck)
+
+Any real scenario can block a step (KYC can't reach Aadhaar, land records down,
+NESL/CBS unavailable, AI off…). With `ALOS_TEST_BYPASS=1` you can force past **any**
+stage:
+
+```bash
+curl -X POST localhost:8000/applications/$APP/bypass \
+  -H X-User-Id:me -H X-Tenant-Id:bankA -H content-type:application/json \
+  -d '{"reason":"land records offline"}'
+```
+- Advances to the next workflow stage, **skipping the stage's real action and all
+  gates** (role, maker-checker, money) — so you never get stuck while testing.
+- Every bypass is recorded on the event history tagged `_bypassed` with your reason
+  (fully auditable — you can see exactly what was skipped and why).
+- In the **web UI** a `⏭ Bypass step (test)` button appears on every stage, and an
+  `⏭ bypass on` badge shows the mode is active.
+- **Safety:** returns **403 unless `ALOS_TEST_BYPASS` is set** — it can never fire
+  in production. Leave it unset (the default) for any real deployment.
+
+Other per-stage escape hatches that work even without global bypass: the credit
+memo has **template / manual / skip** when AI is off; all integrations are mock by
+default; `ALOS_STORAGE=memory` needs no database.
+
+---
+
 FastAPI **modular monolith** (ADR-0001) proving the cross-cutting spine before
 features are piled on:
 

@@ -6,6 +6,7 @@
 const $ = (id) => document.getElementById(id);
 let appId = null;
 let aiAvailable = false;
+let bypassOn = false;   // test-only escape hatch (ALOS_TEST_BYPASS)
 
 // Distinct identities so Separation of Duties (maker != checker) holds, and so
 // each privileged stage carries the role the workflow requires.
@@ -38,6 +39,19 @@ async function api(method, path, body, role) {
     throw new Error(d || `${res.status} ${res.statusText}`);
   }
   return data;
+}
+
+async function refreshEnv() {
+  try {
+    const h = await api("GET", "/health");
+    bypassOn = !!h.test_bypass;
+    if (bypassOn) {
+      const b = $("aiBadge");
+      // small hint that test bypass is active
+      b.insertAdjacentHTML("afterend",
+        '<span id="bypassBadge" class="badge badge-warn" title="ALOS_TEST_BYPASS is on">⏭ bypass on</span>');
+    }
+  } catch { /* ignore */ }
 }
 
 async function refreshAi() {
@@ -140,7 +154,17 @@ async function renderTimeline() {
   else if (!current) { $("actionTitle").textContent = "🎉 Lifecycle complete";
     actions.appendChild(btn("✅ Reconciliation report", async () =>
       showOut("reconciliation", await api("GET", "/reconciliation/report")), "primary")); return; }
+  // Test-only: force past whatever the current step is (any stuck stage).
+  if (bypassOn && current) actions.appendChild(
+    btn("⏭ Bypass step (test)", () => bypass(current.name), "ghost"));
   $("actionTitle").textContent = titleObj.title;
+}
+
+async function bypass(stageName) {
+  try {
+    await api("POST", `/applications/${appId}/bypass`, { reason: `skip ${stageName} (test)` });
+    toast(`⏭ bypassed ${stageName}`); await renderTimeline(); await renderRisk();
+  } catch (e) { toast("Error: " + e.message); }
 }
 
 async function advance(stage, role) {
@@ -232,4 +256,5 @@ $("skipSave").onclick = async () => {
   catch (e) { toast("Error: " + e.message); }
 };
 
+refreshEnv();
 refreshAi();

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     app_name: str = "ALOS API"
     environment: str = "dev"  # dev | staging | prod
 
+    # TEST-ONLY escape hatch. When true, exposes POST /applications/{id}/bypass to
+    # force past any stuck stage (skips gates + real actions). MUST stay false in
+    # production. Enable for testing with ALOS_TEST_BYPASS=1.
+    test_bypass: bool = False
+
     # Storage backend for the event + audit stores. "memory" is the default for
     # dev/CI; "postgres" enables the RLS-backed durable stores (ADR-0002/0003).
     storage: str = "memory"  # memory | postgres
