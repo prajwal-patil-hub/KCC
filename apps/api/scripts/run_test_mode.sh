@@ -13,5 +13,14 @@ export ALOS_LLM_PROVIDER=none      # AI off → memo falls back to template/skip
 export ALOS_TEST_BYPASS=1          # enable ⏭ bypass on every stage
 export PYTHONPATH=src
 
+# macOS ships python3 (not `python`); Linux varies too — pick whatever exists.
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then
+  if command -v python3 >/dev/null 2>&1; then PY=python3
+  elif command -v python  >/dev/null 2>&1; then PY=python
+  else echo "No python found. Install Python 3.10+ (macOS: brew install python)"; exit 1
+  fi
+fi
+
 echo "ALOS test mode → http://localhost:${PORT:-8000}/app/  (bypass ON, all mocked)"
-exec python -m uvicorn alos_api.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec "$PY" -m uvicorn alos_api.main:app --host 0.0.0.0 --port "${PORT:-8000}"
